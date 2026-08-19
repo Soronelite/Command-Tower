@@ -1,0 +1,4634 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- NOTE (audit M-8) : envisager d'ajouter `viewport-fit=cover` + padding via
+     env(safe-area-inset-*) sur l'overlay plein écran (#life-fullscreen-overlay)
+     pour éviter que le bandeau central soit rogné par l'encoche sur iPhone.
+     Volontairement non appliqué pour l'instant (à valider). -->
+<title>Compagnon TCG — Magic the Gathering</title>
+<style>
+  :root{
+    --bg: #14121a;
+    --surface: #1e1b26;
+    --border: #332f42;
+    --text: #ece7f3;
+    --text-muted: #9691a3;
+    --accent: #c9a24b;
+    --accent-strong: #e0b95c;
+    --danger: #e0645c;
+    /* Dégradé du thème de couleur actif (piloté en JS, cf. COLOR_THEMES). */
+    --accent-gradient: linear-gradient(135deg, #C9A24B, #8C6825);
+
+    /* --- Variables du calculateur de mana (intégré) --- */
+    --ink: var(--bg);
+    --surface-2: #242030;
+    --surface-3: #2c2739;
+    --border-strong: #453f57;
+    --text-faint: #6f6a7d;
+    /* L'or du calculateur suit l'accent du thème de couleur actif (piloté en JS). */
+    --gold: var(--accent);
+    --gold-dim: var(--accent);
+    --gold-soft: rgba(201,162,75,0.14);
+    --w: #d9cf9e;
+    --w-text: #171410;
+    --u: #4d84b0;
+    --b: #5c5468;
+    --r: #af5138;
+    --g: #547e50;
+    --c: #8d9195;
+    --radius-s: 6px;
+    --radius-m: 10px;
+    --radius-l: 16px;
+    /* Polices alignées sur le reste de l'application (plus de serif dédié). */
+    --font-display: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-body: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  :root[data-theme="light"]{
+    --bg: #ffffff;
+    --surface: #f4f2f7;
+    --border: #ddd8e3;
+    --text: #17151d;
+    --text-muted: #6b6577;
+    --accent: #a97f2e;
+    --accent-strong: #8c6825;
+    --danger: #c1352c;
+
+    /* --- Calculateur de mana : déclinaison claire --- */
+    --surface-2: #ebe8f1;
+    --surface-3: #e1dded;
+    --border-strong: #c8c2d4;
+    --text-faint: #928ca0;
+    --gold-soft: rgba(169,127,46,0.12);
+    --w: #b9ad6f;
+    --w-text: #ffffff;
+    --u: #3f6f97;
+    --b: #4b4457;
+    --r: #98432d;
+    --g: #45693f;
+    --c: #74787c;
+  }
+
+  /* Fine bande dégradée en haut des blocs (motif repris du calculateur de mana). */
+  .card, .life-block{ position: relative; overflow: hidden; }
+  .card::before, .life-block::before{
+    content:"";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent-gradient);
+    opacity: 0.75;
+    pointer-events: none;
+  }
+
+  *{ box-sizing: border-box; }
+
+  body{
+    margin:0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    padding: 24px 16px 60px;
+    transition: background-color .15s ease, color .15s ease;
+  }
+
+  .container{ max-width: 880px; margin: 0 auto; }
+
+  header{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  header h1{
+    font-size: 1.5rem;
+    letter-spacing: 0.3px;
+    margin: 0;
+  }
+  header .subtitle{
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin-top: 6px;
+  }
+
+  nav.tabs{
+    display:flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    margin: 24px 0 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  .tab-btn{
+    background:none;
+    border:none;
+    color: var(--text-muted);
+    padding: 10px 16px;
+    font-size: 0.92rem;
+    font-weight: 600;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .tab-btn:hover{ color: var(--text); }
+  .tab-btn.active{ color: var(--accent-strong); border-bottom-color: var(--accent); }
+  .tab-btn:focus-visible{ outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .view{ display:none; }
+  .view.active{ display:block; animation: fadein .15s ease; }
+  @media (prefers-reduced-motion: reduce){ .view.active{ animation:none; } }
+  @keyframes fadein{ from{opacity:0} to{opacity:1} }
+
+  .card{
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 22px;
+    margin-bottom: 20px;
+  }
+  .card h2{
+    font-size: 1.02rem;
+    margin: 0 0 4px;
+    display:flex;
+    align-items:center;
+    gap: 10px;
+  }
+  .step-num{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--bg);
+    font-size: 0.75rem;
+    font-weight: 800;
+    flex-shrink: 0;
+  }
+  .card p.hint{
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin: 0 0 16px;
+    line-height: 1.4;
+  }
+
+  .field-row{
+    display:flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    margin-bottom: 8px;
+  }
+  .field{ display:flex; flex-direction:column; gap:6px; }
+  .field label{ font-size: 0.78rem; color: var(--text-muted); }
+  .field input{
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 9px 10px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    min-width: 110px;
+  }
+  .field input:focus-visible{
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+    border-color: var(--accent);
+  }
+
+  button.primary{
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    padding: 10px 18px;
+    border-radius: 6px;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 0.88rem;
+    white-space: nowrap;
+  }
+  button.primary:hover{ background: var(--accent-strong); }
+
+  button.secondary{
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 9px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.88rem;
+  }
+  button.secondary:hover{ border-color: var(--accent); color: var(--accent-strong); }
+
+  button:focus-visible{ outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  button.icon-btn{
+    background:none;
+    border:none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 1rem;
+    line-height:1;
+    padding: 0 2px;
+  }
+  button.icon-btn:hover{ color: var(--danger); }
+
+  .chip-list{ display:flex; flex-wrap:wrap; gap:8px; margin: 14px 0 6px; }
+  .chip{
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 6px 8px 6px 14px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size: 0.86rem;
+  }
+
+  .player-count{ font-size: 0.82rem; color: var(--text-muted); margin: 4px 0 0; }
+
+  .alert{
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    margin: 12px 0 0;
+  }
+  .alert.error{
+    background: rgba(224,100,92,0.12);
+    color: var(--danger);
+    border: 1px solid rgba(224,100,92,0.3);
+  }
+  .alert.info{
+    background: rgba(201,162,75,0.1);
+    color: var(--accent-strong);
+    border: 1px solid rgba(201,162,75,0.28);
+  }
+
+  .results{ margin-top: 6px; }
+  .result-item{
+    display:flex;
+    justify-content:space-between;
+    gap: 12px;
+    padding: 10px 2px;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.92rem;
+  }
+  .result-item:last-child{ border-bottom: none; }
+  .result-item .name{ font-weight: 600; }
+  .result-item .nums{
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--accent-strong);
+    text-align: right;
+  }
+
+  .table-group{ margin-top: 14px; }
+  .table-group h3{
+    font-size: 0.88rem;
+    color: var(--accent-strong);
+    margin: 0 0 8px;
+    font-weight: 700;
+  }
+  ul.seat-list{ list-style:none; margin:0; padding:0; }
+  ul.seat-list li{
+    padding: 7px 2px;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9rem;
+    display:flex;
+    gap: 10px;
+  }
+  ul.seat-list li:last-child{ border-bottom: none; }
+  .seat-pos{
+    color: var(--text-muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    min-width: 40px;
+  }
+
+  .table-diagram{ margin: 10px 0 4px; }
+  .table-diagram svg text{ font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+
+  .actions{ display:flex; gap:10px; flex-wrap:wrap; }
+
+  .empty-state{
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    padding: 18px 0;
+    text-align: center;
+  }
+
+  /* Style commun aux tableaux de données (résumé draft + classement). */
+  table.data-table{ width:100%; border-collapse: collapse; font-size: 0.88rem; }
+  table.data-table th{
+    text-align:left;
+    padding: 8px 6px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  table.data-table td{
+    padding: 9px 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  footer.note{
+    color: var(--text-muted);
+    font-size: 0.76rem;
+    margin-top: 12px;
+  }
+
+  .round-block{ margin-bottom: 22px; }
+  .round-block h3{
+    font-size: 0.92rem;
+    color: var(--accent-strong);
+    margin: 0 0 10px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap: 10px;
+    font-weight: 700;
+  }
+  .round-progress{ font-size: 0.76rem; color: var(--text-muted); font-weight: 500; }
+
+  .match-row{
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    background: var(--bg);
+  }
+  .match-row.completed{ padding: 12px 16px; }
+  .match-row.bye-row{ font-size: 0.9rem; color: var(--text-muted); padding: 12px 16px; }
+
+  .match-title{
+    font-size: 0.92rem;
+    margin-bottom: 10px;
+    display:flex;
+    justify-content:space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .match-title .vs{ color: var(--text-muted); font-weight: 400; margin: 0 6px; }
+  .match-result{
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--accent-strong);
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .match-timer{ display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-wrap: wrap; }
+  .timer-display{
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.95rem;
+    color: var(--accent-strong);
+    font-weight: 700;
+  }
+  .timer-display.expired{ color: var(--danger); }
+
+  .score-picker{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+  .score-btn{
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 7px 12px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    cursor: pointer;
+  }
+  .score-btn:hover{ border-color: var(--accent); }
+  .score-btn.selected{ background: var(--accent); border-color: var(--accent); color: var(--bg); font-weight: 700; }
+
+  /* Variante « classement » : hérite de .data-table, ajuste marge + taille d'en-tête. */
+  table.data-table.standings-table{ margin-top: 4px; }
+  table.data-table.standings-table th{ font-size: 0.75rem; }
+  table.data-table.standings-table td{ padding: 8px 6px; }
+  table.data-table.standings-table td.points{
+    font-weight: 700;
+    color: var(--accent-strong);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  .dropped-list{ margin-top: 8px; display:flex; flex-direction:column; gap:6px; }
+  .dropped-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 10px;
+  }
+  .restore-btn:hover{ color: var(--accent-strong); }
+
+  .life-page-layout{ display:flex; gap:14px; margin-bottom: 16px; align-items:stretch; }
+  .life-blocks-col{ flex:1; min-width:0; display:flex; flex-direction:column; gap:12px; }
+  .life-block{
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 8px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    min-height: 170px;
+  }
+  .life-player-name{
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin-bottom: 14px;
+    text-align:center;
+    word-break: break-word;
+  }
+  .life-controls{ display:flex; align-items:center; gap:14px; }
+  .life-total{
+    font-size: 2.6rem;
+    font-weight: 800;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    min-width: 70px;
+    text-align:center;
+    color: var(--accent-strong);
+  }
+  .life-total.negative{ color: var(--danger); }
+  .life-btn{
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 1.6rem;
+    font-weight: 700;
+    cursor: pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-shrink: 0;
+  }
+  .life-btn:hover{ border-color: var(--accent); color: var(--accent-strong); }
+  .life-btn:active{ transform: scale(0.93); }
+
+  .life-adjust-row{ display:flex; gap:6px; margin-top:14px; }
+  .life-adjust-btn{
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 0.76rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    cursor: pointer;
+  }
+  .life-adjust-btn:hover{ border-color: var(--accent); color: var(--accent-strong); }
+
+  /* Compteurs poison (en bas à droite du bloc) */
+  .poison-row{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    margin-top: 12px;
+    align-self: flex-end;
+  }
+  .poison-icon{
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+    display:inline-flex;
+  }
+  .poison-icon svg{ width:100%; height:100%; display:block; }
+  /* En thème sombre le logo (noir) doit apparaître clair pour rester visible */
+  .poison-icon svg path{ fill: var(--text-muted); }
+  .poison-btn{
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-shrink: 0;
+  }
+  .poison-btn:hover{ border-color: var(--accent); color: var(--accent-strong); }
+  .poison-count{
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 1rem;
+    font-weight: 700;
+    min-width: 20px;
+    text-align:center;
+    color: var(--text);
+  }
+  .poison-count.lethal{ color: var(--danger); }
+
+  /* Historique des points de vie */
+  .life-history-card .hint{ margin-bottom: 10px; }
+  .life-history-list{
+    display:flex;
+    flex-direction:column;
+    gap: 2px;
+    max-height: 260px;
+    overflow-y: auto;
+  }
+  .life-history-entry{
+    display:flex;
+    gap: 10px;
+    align-items: baseline;
+    font-size: 0.84rem;
+    padding: 5px 2px;
+    border-bottom: 1px solid var(--border);
+  }
+  .life-history-entry:last-child{ border-bottom: none; }
+  .life-history-time{
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    flex-shrink: 0;
+  }
+  .life-history-who{ font-weight: 600; flex-shrink: 0; }
+  .life-history-change{
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+  .life-history-change.up{ color: var(--accent-strong); }
+  .life-history-change.down{ color: var(--danger); }
+  .life-history-empty{ color: var(--text-muted); font-size:0.85rem; font-style:italic; padding: 6px 0; }
+
+  .dice-panel{
+    flex-shrink: 0;
+    width: 118px;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+  .dice-panel .secondary{ width:100%; padding:8px 6px; font-size:0.82rem; }
+  .dice-result{
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    text-align:center;
+    min-height: 1.3em;
+  }
+
+  /* Ces éléments utilisent display:flex, mais reçoivent aussi l'attribut "hidden" en JS.
+     Sans cette règle, [hidden]{display:none} du navigateur (même spécificité, 0-1-0)
+     serait silencieusement ignoré au profit de notre display:flex : l'élément resterait
+     visible en permanence malgré hidden=true. On force ici explicitement display:none
+     avec une spécificité supérieure (classe + attribut = 0-2-0) pour garantir que
+     l'attribut hidden est toujours respecté. */
+  .life-fullscreen-overlay[hidden],
+  .actions[hidden],
+  .life-page-layout[hidden]{
+    display: none;
+  }
+
+  /* ---------- Mode plein écran (vue partagée à deux) ---------- */
+  .life-fullscreen-overlay{
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    background: var(--bg);
+    display:flex;
+    flex-direction:column;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+  }
+  .fs-block{
+    flex: 1;
+    min-height: 0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    padding: 12px;
+  }
+  .fs-block.fs-rotated{ transform: rotate(180deg); }
+  .fs-block .life-player-name{ font-size: 1.5rem; margin-bottom: 18px; }
+  .fs-block .life-total{ font-size: 4rem; min-width:110px; }
+  .fs-block .life-btn{ width: 66px; height: 66px; font-size: 2rem; }
+  .fs-block .life-adjust-btn{ font-size: 0.9rem; padding:7px 14px; }
+
+  .fs-center-strip{
+    flex-shrink: 0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap: 10px;
+    padding: 12px;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .fs-timer-rotated{ transform: rotate(180deg); }
+  .fs-dice-panel{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:center; }
+  .fs-dice-panel .secondary{ padding:8px 12px; font-size:0.82rem; }
+
+  /* ---------- Sélecteur de thème de couleur ---------- */
+  .header-controls{ display:flex; gap:8px; align-items:flex-start; }
+  .theme-picker{ position: relative; }
+  .theme-swatch-btn{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    background:none;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.88rem;
+  }
+  .theme-swatch-btn:hover{ border-color: var(--accent); }
+  .swatch-dot{
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--accent-gradient);
+    border: 1px solid rgba(0,0,0,0.25);
+    flex-shrink: 0;
+  }
+  .theme-menu{
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 1500;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px;
+    width: 230px;
+    max-height: 340px;
+    overflow-y: auto;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.45);
+  }
+  .theme-menu[hidden]{ display:none; }
+  .theme-group-label{
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    padding: 8px 6px 4px;
+    font-weight: 700;
+  }
+  .theme-option{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    width: 100%;
+    background:none;
+    border:none;
+    color: var(--text);
+    padding: 7px 6px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    text-align:left;
+  }
+  .theme-option:hover{ background: var(--bg); }
+  .theme-option.selected{ color: var(--accent-strong); font-weight: 700; }
+  .theme-option-dot{
+    width: 22px; height: 14px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    border: 1px solid rgba(0,0,0,0.25);
+  }
+
+  /* Le classement comporte de nombreuses colonnes de départage : scroll horizontal sur petit écran. */
+  .standings-scroll{ overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table.standings-table{ min-width: 460px; }
+  table.data-table td.tiebreak{
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  /* ================= Calculateur de base de mana (page intégrée) ================= */
+/* CORRECTIF — plusieurs composants (ex : .stepper-row{display:flex}) fixent
+     leur propre "display" avec la même spécificité que la règle native
+     [hidden]{display:none} du navigateur. À spécificité égale, une règle
+     d'auteur l'emporte sur la feuille de style par défaut du navigateur :
+     sans cette règle, poser element.hidden = true en JS n'a AUCUN effet
+     visuel sur ces composants (l'attribut est bien présent dans le DOM,
+     mais l'élément reste affiché). Cette règle globale, volontairement en
+     !important, garantit que [hidden] masque toujours l'élément. */
+  #view-mana [hidden]{ display: none !important; }
+
+  ::selection{ background: var(--gold-soft); color: var(--text); }
+
+  :focus-visible{
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* ---------- Hero ---------- */
+
+  /* ---------- Result card (signature element) ---------- */
+  .result-card{
+    position: sticky;
+    top: 10px;
+    z-index: 5;
+    background: linear-gradient(180deg, var(--surface-2), var(--surface));
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-l);
+    padding: 18px 18px 16px;
+    margin: 8px 0 24px;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.45);
+    max-height: min(78vh, 720px);
+    overflow-y: auto;
+  }
+  .result-card::before{
+    content:"";
+    display:block;
+    height: 2px;
+    margin: -18px -18px 14px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    opacity: 0.6;
+    position: sticky;
+    top: -18px;
+  }
+  .result-header{
+    display:flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .result-eyebrow{
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+  .result-total{
+    font-family: var(--font-display);
+    font-size: 2.6rem;
+    color: var(--gold);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .result-total-unit{
+    font-size: 1rem;
+    color: var(--text-muted);
+    font-family: var(--font-body);
+    margin-left: 4px;
+  }
+  .result-stats{
+    display: flex;
+    gap: 22px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+  .stat{
+    display:flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .stat-label{
+    font-size: 0.7rem;
+    color: var(--text-faint);
+  }
+  .stat-value{
+    font-family: var(--font-mono);
+    font-size: 1.05rem;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mana-bar{
+    display:flex;
+    width: 100%;
+    height: 12px;
+    border-radius: 999px;
+    overflow: hidden;
+    margin-top: 16px;
+    background: var(--surface-3);
+    border: 1px solid var(--border);
+  }
+  .mana-bar-seg{ height: 100%; transition: width 0.25s ease; }
+
+  .breakdown-list{
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(90px,1fr));
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .breakdown-item{
+    display:flex;
+    align-items:center;
+    gap: 8px;
+    background: var(--surface-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-s);
+    padding: 7px 9px;
+  }
+  .breakdown-swatch{
+    width: 14px; height: 14px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    border: 1px solid rgba(0,0,0,0.3);
+  }
+  .breakdown-label{
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    flex: 1;
+  }
+  .breakdown-count{
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    color: var(--text);
+  }
+  .result-empty{
+    color: var(--text-faint);
+    font-size: 0.82rem;
+    margin-top: 14px;
+    font-style: italic;
+  }
+  .result-note{
+    color: var(--text-faint);
+    font-size: 0.72rem;
+    margin-top: 10px;
+  }
+
+  /* ---------- Identité colorée du deck ---------- */
+  .deck-identity-badge{
+    display: inline-block;
+    font-family: var(--font-display);
+    font-size: 0.82rem;
+    color: var(--gold);
+    background: var(--gold-soft);
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    padding: 4px 12px;
+    margin-top: 2px;
+    margin-bottom: 12px;
+  }
+
+  /* ---------- Bouton de repli / dépli du bandeau ---------- */
+  .sr-only{
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0,0,0,0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .result-collapse-toggle{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    margin-top: 10px;
+    padding: 7px 0 1px;
+    background: transparent;
+    border: none;
+    border-top: 1px solid var(--border);
+    color: var(--text-faint);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .result-collapse-toggle:hover{ color: var(--gold); }
+  .result-collapse-toggle .chevron-icon{
+    transition: transform .2s ease;
+  }
+  .result-collapse-toggle.is-collapsed .chevron-icon{
+    transform: rotate(180deg);
+  }
+
+  /* ---------- Recap non-basiques (dans le result-card) ---------- */
+  .recap-block{
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .recap-title{
+    font-family: var(--font-display);
+    font-size: 0.95rem;
+    color: var(--text);
+    margin: 0 0 2px;
+  }
+  .recap-sub{
+    font-size: 0.72rem;
+    color: var(--text-faint);
+    margin: 0 0 10px;
+  }
+  .recap-stats{
+    display:flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+  .recap-stat-value{
+    font-family: var(--font-mono);
+    font-size: 0.92rem;
+    color: var(--gold);
+  }
+  .recap-item-detail{
+    font-size: 0.68rem;
+    color: var(--text-faint);
+    display:block;
+  }
+
+  /* ---------- Form sections ---------- */
+  .form{
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .card-title{
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    color: var(--text);
+    margin: 0 0 3px;
+    display:flex;
+    align-items:center;
+    gap: 8px;
+  }
+  .card-title .idx{
+    color: var(--gold-dim);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+  }
+  .card-hint{
+    font-size: 0.78rem;
+    color: var(--text-faint);
+    margin: 0 0 14px;
+  }
+
+  /* Deck size segmented control */
+  .segmented{
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  @media (min-width: 480px){
+    .segmented{ grid-template-columns: repeat(6, 1fr); }
+  }
+  .segmented button{
+    font-family: var(--font-mono);
+    font-size: 0.95rem;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    border-radius: var(--radius-m);
+    padding: 10px 0;
+    cursor: pointer;
+    transition: border-color .15s, color .15s, background .15s;
+  }
+  .segmented button.seg-custom{
+    font-family: var(--font-body);
+    font-size: 0.72rem;
+    letter-spacing: 0.01em;
+    padding: 10px 4px;
+  }
+  .segmented button:hover{ border-color: var(--border-strong); color: var(--text); }
+  .segmented button.active{
+    background: var(--gold-soft);
+    border-color: var(--gold);
+    color: var(--gold);
+    font-weight: 600;
+  }
+
+  .custom-size-row{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-m);
+  }
+  .custom-size-input{
+    width: 88px;
+    font-family: var(--font-mono);
+    font-size: 0.95rem;
+    text-align: center;
+    background: var(--surface-3);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-s);
+    color: var(--text);
+    padding: 7px 6px;
+  }
+  .custom-size-input:focus-visible{
+    outline: 2px solid var(--gold);
+    outline-offset: 1px;
+  }
+
+  /* Color toggles */
+  .colors-grid{
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  @media (min-width: 480px){
+    .colors-grid{ grid-template-columns: repeat(6, 1fr); }
+  }
+  .color-toggle{
+    display:flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 6px 10px;
+    border-radius: var(--radius-m);
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: border-color .15s, transform .1s, background .15s;
+  }
+  .color-toggle:hover{ border-color: var(--border-strong); }
+  .color-toggle:active{ transform: scale(0.97); }
+  .color-toggle .swatch{
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,0.35);
+    display:flex; align-items:center; justify-content:center;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: rgba(0,0,0,0.55);
+  }
+  .color-toggle .name{ font-size: 0.66rem; letter-spacing: 0.03em; }
+  .color-toggle.active{
+    background: var(--surface-3);
+    border-color: var(--border-strong);
+    color: var(--text);
+  }
+  .color-toggle.active .swatch{ box-shadow: 0 0 0 2px var(--ink), 0 0 0 3px currentColor; }
+
+  /* Steppers */
+  .stepper{
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    overflow: hidden;
+    height: 34px;
+    flex-shrink: 0;
+  }
+  .stepper-btn{
+    width: 34px; height: 34px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 1.05rem;
+    line-height: 1;
+    cursor: pointer;
+    display:flex; align-items:center; justify-content:center;
+    -webkit-tap-highlight-color: transparent;
+    transition: background .12s, color .12s;
+  }
+  .stepper-btn:hover{ background: var(--surface-3); color: var(--gold); }
+  .stepper-btn:active{ background: var(--gold-soft); }
+  .stepper-value{
+    min-width: 30px;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 0.92rem;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stepper-row{
+    display:flex;
+    align-items:center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 9px 2px;
+    border-bottom: 1px solid var(--border);
+  }
+  .stepper-row:last-child{ border-bottom: none; }
+  .stepper-row-label{
+    font-size: 0.86rem;
+    color: var(--text);
+  }
+  .stepper-row-sub{
+    display:block;
+    font-size: 0.72rem;
+    color: var(--text-faint);
+    margin-top: 1px;
+  }
+
+  /* Mana curve grid */
+  /* NOUVEAU — grille auto-fit plutôt qu'un nombre de colonnes fixé par un
+     seul point de rupture : le nombre de cases s'adapte en continu à la
+     largeur réelle du conteneur, sans jamais dépasser du cadre, quelle que
+     soit la taille de l'écran (y compris les cas où le conteneur affiché
+     n'a pas exactement la largeur du viewport). */
+  .curve-grid{
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+    gap: 12px 8px;
+  }
+  .curve-cell{
+    display:flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+  .curve-cell-label{
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--text-faint);
+  }
+  .curve-cell .stepper{ height: 30px; }
+  .curve-cell .stepper-btn{ width: 28px; height: 30px; font-size: 0.9rem; }
+  .curve-cell .stepper-value{ min-width: 22px; font-size: 0.82rem; }
+
+  /* Pips panels */
+  .pips-panel{
+    border-radius: var(--radius-m);
+    border: 1px solid var(--border);
+    padding: 10px 12px 4px;
+    margin-bottom: 10px;
+    background: var(--surface-2);
+  }
+  .pips-panel:last-child{ margin-bottom: 0; }
+  .pips-panel-title{
+    display:flex;
+    align-items:center;
+    gap: 8px;
+    font-size: 0.82rem;
+    color: var(--text);
+    margin-bottom: 2px;
+  }
+  .pips-panel-swatch{
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,0.35);
+  }
+  .pips-empty{
+    color: var(--text-faint);
+    font-size: 0.82rem;
+    font-style: italic;
+    text-align: center;
+    padding: 10px 0;
+  }
+
+  /* Subsections (bicolores, terrains/rocks par nb de couleurs) */
+  .subsection{
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--border);
+  }
+  .subsection:first-of-type{
+    margin-top: 4px;
+  }
+  .subsection-title{
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--gold-dim);
+    margin: 0 0 3px;
+  }
+  .subsection-hint{
+    font-size: 0.75rem;
+    color: var(--text-faint);
+    margin: 0 0 8px;
+  }
+  .combo-row-label-wrap{
+    display:flex;
+    align-items:center;
+    gap: 8px;
+    min-width: 0;
+  }
+  .split-swatch{
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,0.35);
+    flex-shrink: 0;
+  }
+  .combo-empty{
+    color: var(--text-faint);
+    font-size: 0.78rem;
+    font-style: italic;
+    padding: 4px 0 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ transition: none !important; animation: none !important; }
+  }
+
+  @media (min-width: 700px){
+    .result-card{ top: 16px; }
+  }
+
+  /* ---------- Modale de confirmation réutilisable ---------- */
+  .modal-overlay{
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    background: rgba(0,0,0,0.55);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding: 20px;
+  }
+  .modal-overlay[hidden]{ display: none; }
+  .modal-box{
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px;
+    max-width: 420px;
+    width: 100%;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+  }
+  .modal-box h3{ margin: 0 0 10px; font-size: 1.05rem; }
+  .modal-box p{ margin: 0 0 18px; font-size: 0.9rem; color: var(--text-muted); line-height: 1.45; }
+  .modal-actions{ display:flex; flex-direction:column; gap: 8px; }
+  .modal-actions button{ width: 100%; }
+  .modal-note{ font-size:0.8rem; color: var(--text-muted); margin: 12px 0 0; font-style: italic; }
+
+  @media (max-width:560px){
+    /* Le menu de thèmes est repositionné en JS (position fixe pleine largeur) ;
+       ces règles servent de repli et bornent sa hauteur sur petit écran. */
+    .theme-menu{
+      width: auto;
+      max-width: calc(100vw - 24px);
+      max-height: 60vh;
+    }
+    .field input{ min-width: 84px; }
+    .card{ padding: 16px; }
+    .life-page-layout{ flex-direction:column; }
+    .dice-panel{ width:100%; flex-direction:row; flex-wrap:wrap; }
+    .dice-panel .secondary{ flex:1; min-width:80px; width:auto; }
+    .life-total{ font-size: 2.1rem; }
+    .life-btn{ width: 44px; height: 44px; font-size: 1.4rem; }
+    .fs-block .life-total{ font-size: 3rem; }
+    .fs-block .life-btn{ width: 52px; height: 52px; font-size: 1.6rem; }
+  }
+</style>
+<!-- ===================================================================
+     PWA — Balises ajoutées pour l'installabilité (app « Command Tower »)
+     Aucune balise existante ci-dessus n'a été modifiée ni supprimée.
+=================================================================== -->
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#14121a">
+<link rel="manifest" href="manifest.json">
+
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+<!-- iOS Safari : activation du mode standalone à l'installation -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Command Tower">
+<!-- Android/Chrome : équivalent moderne de la balise ci-dessus -->
+<meta name="mobile-web-app-capable" content="yes">
+<!-- ================================================================= -->
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div>
+      <h1>Compagnon TCG — Magic the Gathering</h1>
+      <p class="subtitle">Draft, points de vie, suivi de tournoi et calcul de mana</p>
+    </div>
+    <div class="header-controls">
+      <div class="theme-picker">
+        <button class="theme-swatch-btn" id="color-theme-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Changer le thème de couleur">
+          <span class="swatch-dot" aria-hidden="true"></span>
+          <span id="color-theme-label">Neutre</span>
+        </button>
+        <div class="theme-menu" id="color-theme-menu" hidden role="menu" aria-label="Thèmes de couleur"></div>
+      </div>
+      <button class="secondary" id="theme-toggle-btn" type="button" aria-pressed="false">☀️ Mode clair</button>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Sections principales">
+    <button class="tab-btn active" data-view="draft" id="tab-draft" role="tab" aria-selected="true" aria-controls="view-draft" type="button">Draft</button>
+    <button class="tab-btn" data-view="life" id="tab-life" role="tab" aria-selected="false" aria-controls="view-life" type="button">Points de vie</button>
+    <button class="tab-btn" data-view="tournament" id="tab-tournament" role="tab" aria-selected="false" aria-controls="view-tournament" type="button">Suivi de tournoi</button>
+    <button class="tab-btn" data-view="mana" id="tab-mana" role="tab" aria-selected="false" aria-controls="view-mana" type="button">Calcul de mana</button>
+  </nav>
+
+  <main>
+
+    <!-- DRAFT -->
+    <section id="view-draft" class="view active" role="tabpanel" aria-labelledby="tab-draft" tabindex="0">
+
+      <div class="card">
+        <h2>Joueurs</h2>
+        <p class="hint">Cette liste est partagée entre le tirage des boosters et la répartition des tables.</p>
+        <div class="field-row">
+          <div class="field">
+            <label for="player-name-input">Nom du joueur</label>
+            <input type="text" id="player-name-input" placeholder="Ex : Alice" maxlength="40">
+          </div>
+          <button class="primary" id="add-player-btn" type="button">Ajouter</button>
+        </div>
+        <div id="player-error" class="alert error" hidden></div>
+        <div class="chip-list" id="player-chip-list" aria-live="polite"></div>
+        <p class="player-count" id="player-count">0 joueur</p>
+      </div>
+
+      <div class="card">
+        <h2><span class="step-num">1</span> Tirage au sort des boosters</h2>
+        <p class="hint">Indiquez le nombre de boosters par joueur et la plage de numéros disponibles (ex : de 1 à 24 si vous avez 24 boosters numérotés), puis lancez le tirage.</p>
+        <div class="field-row">
+          <div class="field">
+            <label for="boosters-per-player">Boosters / joueur</label>
+            <input type="number" id="boosters-per-player" min="1" step="1" inputmode="numeric" value="3">
+          </div>
+          <div class="field">
+            <label for="range-min">Numéro min</label>
+            <input type="number" id="range-min" min="1" step="1" inputmode="numeric" value="1">
+          </div>
+          <div class="field">
+            <label for="range-max">Numéro max</label>
+            <input type="number" id="range-max" min="1" step="1" inputmode="numeric" value="24">
+          </div>
+          <button class="primary" id="draw-boosters-btn" type="button">Lancer le tirage</button>
+        </div>
+        <div id="booster-error" class="alert error" hidden></div>
+        <div id="booster-results" class="results" aria-live="polite"></div>
+      </div>
+
+      <div class="card">
+        <h2><span class="step-num">2</span> Répartition des joueurs sur les tables</h2>
+        <p class="hint">Indiquez le nombre de tables et le nombre de joueurs par table, puis lancez le tirage.</p>
+        <div class="field-row">
+          <div class="field">
+            <label for="num-tables">Nombre de tables</label>
+            <input type="number" id="num-tables" min="1" step="1" inputmode="numeric" value="1">
+          </div>
+          <div class="field">
+            <label for="players-per-table">Joueurs / table</label>
+            <input type="number" id="players-per-table" min="1" step="1" inputmode="numeric" value="4">
+          </div>
+          <button class="primary" id="draw-tables-btn" type="button">Lancer le tirage</button>
+        </div>
+        <div id="table-error" class="alert error" hidden></div>
+        <div id="table-results" class="results" aria-live="polite"></div>
+      </div>
+
+      <div class="actions">
+        <button class="secondary" id="reset-draft-btn" type="button">Réinitialiser le draft</button>
+      </div>
+
+    </section>
+
+    <!-- POINTS DE VIE -->
+    <section id="view-life" class="view" role="tabpanel" aria-labelledby="tab-life" tabindex="0">
+
+      <div class="match-timer" style="margin-bottom:16px;">
+        <span class="hint round-timer-label" style="margin:0;" hidden>⏱ Chrono du round en cours :</span>
+        <span class="timer-display round-timer-display" id="life-timer-display" hidden></span>
+      </div>
+
+      <div class="card" id="life-setup-card">
+        <h2>Compteur de points de vie</h2>
+        <p class="hint">Sélectionnez les deux joueurs qui s'affrontent et le total de points de vie de départ, puis démarrez la partie.</p>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="life-player1-select">Joueur 1</label>
+            <select id="life-player1-select"></select>
+          </div>
+          <div class="field">
+            <label for="life-player2-select">Joueur 2</label>
+            <select id="life-player2-select"></select>
+          </div>
+        </div>
+
+        <p class="hint" style="margin:12px 0 8px;">Points de vie de départ</p>
+        <div class="score-picker" id="life-total-picker">
+          <button class="score-btn" data-total="10" type="button">10</button>
+          <button class="score-btn selected" data-total="20" type="button">20</button>
+          <button class="score-btn" data-total="30" type="button">30</button>
+          <button class="score-btn" data-total="40" type="button">40</button>
+        </div>
+
+        <div id="life-setup-error" class="alert error" hidden></div>
+        <button class="primary" id="life-start-btn" type="button">Démarrer la partie</button>
+      </div>
+
+      <div class="life-page-layout" id="life-page-layout" hidden>
+        <div class="life-blocks-col">
+          <div class="life-block">
+            <div class="life-player-name life-name-display" data-slot="1"></div>
+            <div class="life-controls">
+              <button class="life-btn life-delta-btn" data-slot="1" data-delta="-1" type="button" aria-label="Retirer un point de vie au joueur 1">−</button>
+              <div class="life-total life-total-display" data-slot="1">20</div>
+              <button class="life-btn life-delta-btn" data-slot="1" data-delta="1" type="button" aria-label="Ajouter un point de vie au joueur 1">+</button>
+            </div>
+            <div class="life-adjust-row">
+              <button class="life-adjust-btn life-delta-btn" data-slot="1" data-delta="-3" type="button">-3</button>
+              <button class="life-adjust-btn life-delta-btn" data-slot="1" data-delta="-5" type="button">-5</button>
+              <button class="life-adjust-btn life-delta-btn" data-slot="1" data-delta="3" type="button">+3</button>
+              <button class="life-adjust-btn life-delta-btn" data-slot="1" data-delta="5" type="button">+5</button>
+            </div>
+            <div class="poison-row">
+              <span class="poison-icon" aria-hidden="true"></span>
+              <button class="poison-btn poison-delta-btn" data-slot="1" data-delta="-1" type="button" aria-label="Retirer un compteur poison au joueur 1">−</button>
+              <span class="poison-count poison-count-display" data-slot="1" title="Compteurs poison">0</span>
+              <button class="poison-btn poison-delta-btn" data-slot="1" data-delta="1" type="button" aria-label="Ajouter un compteur poison au joueur 1">+</button>
+            </div>
+          </div>
+          <div class="life-block">
+            <div class="life-player-name life-name-display" data-slot="2"></div>
+            <div class="life-controls">
+              <button class="life-btn life-delta-btn" data-slot="2" data-delta="-1" type="button" aria-label="Retirer un point de vie au joueur 2">−</button>
+              <div class="life-total life-total-display" data-slot="2">20</div>
+              <button class="life-btn life-delta-btn" data-slot="2" data-delta="1" type="button" aria-label="Ajouter un point de vie au joueur 2">+</button>
+            </div>
+            <div class="life-adjust-row">
+              <button class="life-adjust-btn life-delta-btn" data-slot="2" data-delta="-3" type="button">-3</button>
+              <button class="life-adjust-btn life-delta-btn" data-slot="2" data-delta="-5" type="button">-5</button>
+              <button class="life-adjust-btn life-delta-btn" data-slot="2" data-delta="3" type="button">+3</button>
+              <button class="life-adjust-btn life-delta-btn" data-slot="2" data-delta="5" type="button">+5</button>
+            </div>
+            <div class="poison-row">
+              <span class="poison-icon" aria-hidden="true"></span>
+              <button class="poison-btn poison-delta-btn" data-slot="2" data-delta="-1" type="button" aria-label="Retirer un compteur poison au joueur 2">−</button>
+              <span class="poison-count poison-count-display" data-slot="2" title="Compteurs poison">0</span>
+              <button class="poison-btn poison-delta-btn" data-slot="2" data-delta="1" type="button" aria-label="Ajouter un compteur poison au joueur 2">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="dice-panel">
+          <button class="secondary dice-btn" data-die="6" type="button" aria-label="Lancer un dé à 6 faces">🎲 D6</button>
+          <button class="secondary dice-btn" data-die="12" type="button" aria-label="Lancer un dé à 12 faces">🎲 D12</button>
+          <button class="secondary dice-btn" data-die="20" type="button" aria-label="Lancer un dé à 20 faces">🎲 D20</button>
+          <button class="secondary coin-btn" type="button" aria-label="Lancer une pièce (pile ou face)">🪙 Pile/Face</button>
+          <div class="dice-result" aria-live="polite"></div>
+        </div>
+      </div>
+
+      <div class="actions" id="life-actions" hidden>
+        <button class="secondary" id="life-fullscreen-btn" type="button" aria-label="Passer le suivi des points de vie en plein écran">⛶ Plein écran</button>
+        <button class="secondary" id="life-reset-btn" type="button">Nouvelle partie</button>
+      </div>
+
+      <div class="card life-history-card" id="life-history-card" hidden>
+        <h2>Historique de la partie</h2>
+        <p class="hint">Chaque variation de points de vie et de poison, horodatée (heure:minute).</p>
+        <div class="life-history-list" id="life-history-list" aria-live="polite"></div>
+      </div>
+
+      <!-- Vue plein écran partagée : joueur 2 en haut (à l'envers), joueur 1 en bas -->
+      <div class="life-fullscreen-overlay" id="life-fullscreen-overlay" hidden>
+        <div class="fs-block fs-rotated">
+          <div class="life-player-name life-name-display" data-slot="2"></div>
+          <div class="life-controls">
+            <button class="life-btn life-delta-btn" data-slot="2" data-delta="-1" type="button" aria-label="Retirer un point de vie au joueur 2">−</button>
+            <div class="life-total life-total-display" data-slot="2">20</div>
+            <button class="life-btn life-delta-btn" data-slot="2" data-delta="1" type="button" aria-label="Ajouter un point de vie au joueur 2">+</button>
+          </div>
+          <div class="life-adjust-row">
+            <button class="life-adjust-btn life-delta-btn" data-slot="2" data-delta="-3" type="button">-3</button>
+            <button class="life-adjust-btn life-delta-btn" data-slot="2" data-delta="-5" type="button">-5</button>
+            <button class="life-adjust-btn life-delta-btn" data-slot="2" data-delta="3" type="button">+3</button>
+            <button class="life-adjust-btn life-delta-btn" data-slot="2" data-delta="5" type="button">+5</button>
+          </div>
+          <div class="poison-row">
+            <span class="poison-icon" aria-hidden="true"></span>
+            <button class="poison-btn poison-delta-btn" data-slot="2" data-delta="-1" type="button" aria-label="Retirer un compteur poison au joueur 2">−</button>
+            <span class="poison-count poison-count-display" data-slot="2" title="Compteurs poison">0</span>
+            <button class="poison-btn poison-delta-btn" data-slot="2" data-delta="1" type="button" aria-label="Ajouter un compteur poison au joueur 2">+</button>
+          </div>
+        </div>
+
+        <div class="fs-center-strip">
+          <span class="timer-display round-timer-display fs-timer-rotated" hidden></span>
+          <div class="fs-dice-panel">
+            <button class="secondary dice-btn" data-die="6" type="button" aria-label="Lancer un dé à 6 faces">D6</button>
+            <button class="secondary dice-btn" data-die="12" type="button" aria-label="Lancer un dé à 12 faces">D12</button>
+            <button class="secondary dice-btn" data-die="20" type="button" aria-label="Lancer un dé à 20 faces">D20</button>
+            <button class="secondary coin-btn" type="button" aria-label="Lancer une pièce (pile ou face)">🪙</button>
+          </div>
+          <div class="dice-result" aria-live="polite"></div>
+          <span class="timer-display round-timer-display" hidden></span>
+          <button class="secondary" id="fs-exit-btn" type="button">✕ Quitter le plein écran</button>
+        </div>
+
+        <div class="fs-block">
+          <div class="life-player-name life-name-display" data-slot="1"></div>
+          <div class="life-controls">
+            <button class="life-btn life-delta-btn" data-slot="1" data-delta="-1" type="button" aria-label="Retirer un point de vie au joueur 1">−</button>
+            <div class="life-total life-total-display" data-slot="1">20</div>
+            <button class="life-btn life-delta-btn" data-slot="1" data-delta="1" type="button" aria-label="Ajouter un point de vie au joueur 1">+</button>
+          </div>
+          <div class="life-adjust-row">
+            <button class="life-adjust-btn life-delta-btn" data-slot="1" data-delta="-3" type="button">-3</button>
+            <button class="life-adjust-btn life-delta-btn" data-slot="1" data-delta="-5" type="button">-5</button>
+            <button class="life-adjust-btn life-delta-btn" data-slot="1" data-delta="3" type="button">+3</button>
+            <button class="life-adjust-btn life-delta-btn" data-slot="1" data-delta="5" type="button">+5</button>
+          </div>
+          <div class="poison-row">
+            <span class="poison-icon" aria-hidden="true"></span>
+            <button class="poison-btn poison-delta-btn" data-slot="1" data-delta="-1" type="button" aria-label="Retirer un compteur poison au joueur 1">−</button>
+            <span class="poison-count poison-count-display" data-slot="1" title="Compteurs poison">0</span>
+            <button class="poison-btn poison-delta-btn" data-slot="1" data-delta="1" type="button" aria-label="Ajouter un compteur poison au joueur 1">+</button>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- SUIVI DE TOURNOI -->
+    <section id="view-tournament" class="view" role="tabpanel" aria-labelledby="tab-tournament" tabindex="0">
+
+      <div class="card">
+        <h2>Résumé du draft</h2>
+        <p class="hint">Données conservées depuis la page Draft.</p>
+        <div id="tournament-draft-summary"></div>
+      </div>
+
+      <div class="card">
+        <h2>Suivi des matchs — Best of 3</h2>
+        <p class="hint">Barème : victoire = 3 points (2-0 ou 2-1) · égalité au temps = 1 point chacun (1-1 ou 0-0) · exempt (bye) = victoire automatique à 3 points. Une fois le tournoi lancé, évitez de modifier la liste des joueurs dans l'onglet Draft.</p>
+
+        <div class="field-row">
+          <div class="field">
+            <label for="match-duration">Durée des matchs (minutes)</label>
+            <input type="number" id="match-duration" min="1" step="1" inputmode="numeric" value="50">
+          </div>
+          <div class="field">
+            <label for="max-rounds">Rounds max</label>
+            <input type="number" id="max-rounds" min="1" step="1" inputmode="numeric" placeholder="Illimité">
+          </div>
+          <button class="primary" id="start-tournament-btn" type="button">Lancer le tournoi</button>
+        </div>
+        <div id="tournament-setup-error" class="alert error" hidden></div>
+
+        <div id="tournament-players-panel" hidden>
+          <p class="hint" style="margin-top:14px;">Joueurs actifs — retirez un joueur en cas d'abandon avant de lancer le round suivant.</p>
+          <div class="chip-list" id="active-players-chip-list"></div>
+          <div class="dropped-list" id="dropped-players-list"></div>
+        </div>
+
+        <div id="round-timer-panel" hidden style="margin:16px 0;">
+          <p class="hint round-timer-label" style="margin:0 0 8px;" hidden>Chrono global du round en cours (visible aussi sur la page Points de vie).</p>
+          <div class="match-timer">
+            <button class="secondary" id="round-timer-btn" type="button">Lancer le chrono du round</button>
+            <button class="secondary" id="round-timer-reset-btn" type="button" hidden>Réinitialiser</button>
+            <span class="timer-display round-timer-display" id="round-timer-display" hidden></span>
+          </div>
+        </div>
+
+        <div id="rounds-container" aria-live="polite"></div>
+
+        <div class="actions" id="tournament-actions" hidden>
+          <button class="secondary" id="reset-tournament-btn" type="button">Réinitialiser le tournoi</button>
+        </div>
+      </div>
+
+      <div class="card" id="standings-card" hidden>
+        <h2>Classement</h2>
+        <div id="standings-container"></div>
+      </div>
+
+    </section>
+
+    <!-- CALCUL DE MANA -->
+    <section id="view-mana" class="view" role="tabpanel" aria-labelledby="tab-mana" tabindex="0">
+
+
+
+    <section class="result-card" aria-live="polite">
+      <div class="result-header">
+        <span class="result-eyebrow">Terrains recommandés</span>
+        <span><span class="result-total" id="totalLands">17</span><span class="result-total-unit">cartes</span></span>
+      </div>
+
+      <div id="resultCardBody">
+        <span class="deck-identity-badge" id="deckIdentityBadge" hidden></span>
+
+        <div class="result-stats">
+          <div class="stat">
+            <span class="stat-label">CMC moyen</span>
+            <span class="stat-value" id="avgCmc">0.00</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Terrains non-basiques (total)</span>
+            <span class="stat-value" id="nonBasicEcho">0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Basiques à ajouter</span>
+            <span class="stat-value" id="basicsToAdd">17</span>
+          </div>
+        </div>
+
+        <div id="manaBar" class="mana-bar" hidden></div>
+        <div id="breakdownList" class="breakdown-list"></div>
+        <p id="resultEmpty" class="result-empty">Sélectionnez au moins une couleur et indiquez ses symboles pour voir la répartition des terrains basiques.</p>
+        <p class="result-note">Base = terrains non-basiques déjà dans le deck + terrains basiques suggérés ci-dessus.</p>
+
+        <div class="recap-block">
+          <h3 class="recap-title">Base de mana non-basique du deck</h3>
+          <p class="recap-sub">Sources de couleur déjà apportées par vos terrains non-basiques et vos rocks/dorks. Les terrains comptent pour une source pleine, les rocks/dorks pour 3/4 de source (ils peuvent être détruits ou piochés tardivement) : ce crédit réduit la part de basiques recommandée pour chaque couleur ci-dessus.</p>
+          <div class="recap-stats">
+            <div class="stat">
+              <span class="stat-label">Terrains non-basiques incolores</span>
+              <span class="recap-stat-value" id="recapColorless">0</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Sources colorées via rocks/dorks</span>
+              <span class="recap-stat-value" id="recapRockTotal">0</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Fetchlands (aucune couleur créditée)</span>
+              <span class="recap-stat-value" id="recapFetch">0</span>
+            </div>
+          </div>
+          <div id="recapList" class="breakdown-list"></div>
+          <p id="recapEmpty" class="result-empty">Renseignez vos terrains et rocks/dorks non-basiques ci-dessous pour voir le détail par couleur.</p>
+        </div>
+      </div>
+
+      <button type="button" id="resultCollapseToggle" class="result-collapse-toggle" aria-expanded="true" aria-controls="resultCardBody">
+        <svg class="chevron-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="4,10 8,6 12,10"></polyline>
+        </svg>
+        <span class="sr-only">Réduire ou afficher le détail</span>
+      </button>
+    </section>
+
+    <div class="form">
+
+      <!-- Taille du deck -->
+      <section class="card">
+        <h2 class="card-title"><span class="idx">01</span> Taille du deck</h2>
+        <p class="card-hint">Nombre total de cartes dans le deck.</p>
+        <div class="segmented" id="deckSizeGroup" role="radiogroup" aria-label="Taille du deck">
+          <button type="button" data-size="40" class="active" role="radio" aria-checked="true">40</button>
+          <button type="button" data-size="50" role="radio" aria-checked="false">50</button>
+          <button type="button" data-size="60" role="radio" aria-checked="false">60</button>
+          <button type="button" data-size="80" role="radio" aria-checked="false">80</button>
+          <button type="button" data-size="100" role="radio" aria-checked="false">100</button>
+          <button type="button" data-size="custom" class="seg-custom" role="radio" aria-checked="false">Personnalisé</button>
+        </div>
+        <div class="custom-size-row" id="customSizeRow" hidden>
+          <label class="stepper-row-label" for="customSizeInput">Nombre de cartes</label>
+          <input type="number" id="customSizeInput" class="custom-size-input" min="1" max="300" step="1" inputmode="numeric" value="60">
+        </div>
+      </section>
+
+      <!-- Couleurs -->
+      <section class="card">
+        <h2 class="card-title"><span class="idx">02</span> Couleurs du deck</h2>
+        <p class="card-hint">Activez les couleurs que joue votre deck.</p>
+        <div class="colors-grid" id="colorsGroup">
+          <button type="button" class="color-toggle" data-color="W" style="color:var(--w)">
+            <span class="swatch" style="background:var(--w)">W</span><span class="name">Blanc</span>
+          </button>
+          <button type="button" class="color-toggle" data-color="U" style="color:var(--u)">
+            <span class="swatch" style="background:var(--u)">U</span><span class="name">Bleu</span>
+          </button>
+          <button type="button" class="color-toggle" data-color="B" style="color:var(--b)">
+            <span class="swatch" style="background:var(--b)">B</span><span class="name">Noir</span>
+          </button>
+          <button type="button" class="color-toggle" data-color="R" style="color:var(--r)">
+            <span class="swatch" style="background:var(--r)">R</span><span class="name">Rouge</span>
+          </button>
+          <button type="button" class="color-toggle" data-color="G" style="color:var(--g)">
+            <span class="swatch" style="background:var(--g)">G</span><span class="name">Vert</span>
+          </button>
+          <button type="button" class="color-toggle" data-color="C" style="color:var(--c)">
+            <span class="swatch" style="background:var(--c)">C</span><span class="name">Incolore</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Courbe de mana -->
+      <section class="card">
+        <h2 class="card-title"><span class="idx">03</span> Courbe de mana</h2>
+        <p class="card-hint">Nombre de cartes non-terrain par coût converti.</p>
+        <div class="curve-grid" id="curveGrid"></div>
+      </section>
+
+      <!-- Pips colorés -->
+      <section class="card">
+        <h2 class="card-title"><span class="idx">04</span> Besoins colorés (pips)</h2>
+        <p class="card-hint">Pour chaque couleur activée : total de symboles, doubles précoces, triples, puis coûts bicolores stricts ci-dessous.</p>
+        <div id="pipsContainer"></div>
+        <p class="pips-empty" id="pipsEmpty">Aucune couleur sélectionnée — activez une couleur ci-dessus.</p>
+
+        <div class="subsection">
+          <h3 class="subsection-title">Coûts bicolores stricts</h3>
+          <p class="subsection-hint">Cartes exigeant les deux symboles à la fois, sans alternative (ex : {W}{U}).</p>
+          <div id="goldContainer"></div>
+          <p class="combo-empty" id="goldEmpty">Sélectionnez au moins 2 couleurs pour renseigner des coûts bicolores.</p>
+        </div>
+      </section>
+
+      <!-- Terrains non-basiques -->
+      <section class="card">
+        <h2 class="card-title"><span class="idx">05</span> Terrains non-basiques</h2>
+        <p class="card-hint">Détaillez vos terrains non-basiques selon le nombre de couleurs (parmi celles sélectionnées) qu'ils produisent.</p>
+
+        <div id="landColorlessRow"></div>
+
+        <div class="subsection">
+          <h3 class="subsection-title">Produisent 1 couleur</h3>
+          <p class="subsection-hint">Un terrain non-basique qui ne produit qu'une seule couleur (ex : Temple tapé pour {W}).</p>
+          <div id="landMonoContainer"></div>
+        </div>
+
+        <div class="subsection">
+          <h3 class="subsection-title">Produisent 2 couleurs</h3>
+          <p class="subsection-hint">Terrains bicolores (ex : biomes, terres jumelles).</p>
+          <div id="landDualContainer"></div>
+          <p class="combo-empty" id="landDualEmpty">Sélectionnez au moins 2 couleurs pour renseigner des terrains bicolores.</p>
+        </div>
+
+        <div class="subsection">
+          <h3 class="subsection-title">Produisent 3 couleurs</h3>
+          <p class="subsection-hint">Triomes et terrains tricolores — uniquement des combinaisons entre couleurs que vous avez sélectionnées.</p>
+          <div id="landTriContainer"></div>
+          <p class="combo-empty" id="landTriEmpty">Sélectionnez au moins 3 couleurs pour renseigner des terrains tricolores.</p>
+        </div>
+
+        <div class="subsection" id="landAllRow"></div>
+
+        <div class="subsection">
+          <h3 class="subsection-title">Fetchlands</h3>
+          <p class="subsection-hint">Terrains qui ne produisent pas de mana eux-mêmes : ils se sacrifient (souvent contre 1 point de vie) pour aller chercher un terrain possédant un type de terrain basique précis (ex : Île Engloutie / Flooded Strand). Comptés ici, ils occupent une place de terrain — donc réduisent d'autant le nombre de basiques à ajouter — mais ne sont crédités d'aucune couleur précise, puisqu'ils la déterminent au moment où ils sont sacrifiés.</p>
+          <div id="fetchRow"></div>
+        </div>
+      </section>
+
+      <!-- Rocks/Dorks / Ramp / Cantrips -->
+      <section class="card">
+        <h2 class="card-title"><span class="idx">06</span> Rocks/Dorks, ramp &amp; cantrips</h2>
+        <p class="card-hint">Éléments du deck qui réduisent le nombre de terrains nécessaires, selon leur coût. Un "rock" est un artefact d'accélération (ex : Sol Ring), un "dork" une créature d'accélération (ex : Llanowar Elves) — les deux sont traités de la même façon ici.</p>
+        <div id="rampModifiersGrid"></div>
+
+        <div class="subsection">
+          <h3 class="subsection-title">Sources de couleur des rocks/dorks</h3>
+          <p class="subsection-hint">Ces rocks/dorks comptent pour 3/4 d'une source colorée dans la répartition des basiques par couleur ci-dessus (comme les terrains, mais à poids réduit). Le nombre total de terrains recommandé reste déterminé uniquement par le CMC des rocks/dorks de la section précédente.</p>
+
+          <div id="rockColorlessRow"></div>
+
+          <div class="subsection">
+            <h3 class="subsection-title">Produisent 1 couleur</h3>
+            <div id="rockMonoContainer"></div>
+          </div>
+
+          <div class="subsection">
+            <h3 class="subsection-title">Produisent 2 couleurs</h3>
+            <div id="rockDualContainer"></div>
+            <p class="combo-empty" id="rockDualEmpty">Sélectionnez au moins 2 couleurs pour renseigner des rocks/dorks bicolores.</p>
+          </div>
+
+          <div class="subsection">
+            <h3 class="subsection-title">Produisent 3 couleurs</h3>
+            <div id="rockTriContainer"></div>
+            <p class="combo-empty" id="rockTriEmpty">Sélectionnez au moins 3 couleurs pour renseigner des rocks/dorks tricolores.</p>
+          </div>
+
+          <div class="subsection" id="rockAllRow"></div>
+        </div>
+      </section>
+
+
+    </div>
+    </section>
+
+  </main>
+
+  <footer class="note">Les données sont sauvegardées automatiquement dans ce navigateur (résiste à un rafraîchissement accidentel) lorsque le fichier est ouvert hors de l'aperçu Claude.ai. Dans l'aperçu, elles restent en mémoire pour la session.</footer>
+</div>
+
+<div class="modal-overlay" id="modal-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div class="modal-box">
+    <h3 id="modal-title"></h3>
+    <p id="modal-message"></p>
+    <div class="modal-actions" id="modal-actions"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  const state = {
+    players: [],
+    draft: null,   // { perPlayer, min, max, assignment: { name: [n, n, ...] }, remaining: [n, ...] }
+    tables: null   // { numTables, perTable, assignment: { name: {table, position, size} }, groups: [...] }
+  };
+
+  const tournament = {
+    rounds: [],          // [{ number, matches: [{id, isBye, player1, player2, score1, score2, points1, points2, status}] }]
+    droppedPlayers: new Set()   // joueurs ayant abandonné : exclus des tirages futurs, conservés dans le classement
+  };
+  let matchIdCounter = 1;
+  function nextMatchId(){ return 'm' + (matchIdCounter++); }
+
+  const RANDOM_NAMES = [
+    'Jace Beleren', 'Chandra Nalaar', 'Liliana Vess', 'Gideon Jura', 'Nissa Revane',
+    'Ajani Goldmane', 'Teferi', 'Nicol Bolas', 'Yawgmoth', 'Elesh Norn',
+    'Urza', 'Mishra', 'Karn', 'Gerrard Capashen', 'Sorin Markov',
+    'Garruk Wildspeaker', 'Elspeth Tirel', 'Ugin', 'Niv-Mizzet', 'Atraxa'
+  ];
+
+  // ---------- Thèmes de couleur ----------
+  // Chaque thème fournit une couleur d'accent (fixed) et un dégradé (bande en haut des blocs).
+  // `strong` est optionnel : s'il est absent, il est calculé (éclairci en thème sombre,
+  // assombri en thème clair). Le thème « Neutre » fixe explicitement ses valeurs pour
+  // reproduire à l'identique l'apparence d'origine de l'application.
+  const COLOR_THEMES = {
+    'Neutre':          { fixed:'#C9A24B', strongDark:'#e0b95c', strongLight:'#8c6825', accentLight:'#a97f2e', gradient:'linear-gradient(135deg, #C9A24B, #8C6825)' },
+
+    'Blanc':           { fixed:'#B9AD6F', gradient:'linear-gradient(135deg, #D8CA8A, #A99E72)' },
+    'Bleu':            { fixed:'#3978B5', gradient:'linear-gradient(135deg, #28577F, #5B9BD5)' },
+    'Noir':            { fixed:'#756A87', gradient:'linear-gradient(135deg, #4E465B, #9A8EAD)' },
+    'Rouge':           { fixed:'#B84632', gradient:'linear-gradient(135deg, #8F3023, #E56A45)' },
+    'Vert':            { fixed:'#5B8C4A', gradient:'linear-gradient(135deg, #3E6335, #7CAE62)' },
+
+    'Azorius':         { fixed:'#668EBA', gradient:'linear-gradient(135deg, #D2C99F, #4F7FAE)' },
+    'Orzhov':          { fixed:'#A09265', gradient:'linear-gradient(135deg, #D8CC9A, #665A70)' },
+    'Boros':           { fixed:'#C26A43', gradient:'linear-gradient(135deg, #D8C47F, #B84A32)' },
+    'Selesnya':        { fixed:'#82975A', gradient:'linear-gradient(135deg, #D5C995, #62834E)' },
+    'Dimir':           { fixed:'#596B9C', gradient:'linear-gradient(135deg, #344B78, #71637E)' },
+    'Izzet':           { fixed:'#965D9B', gradient:'linear-gradient(135deg, #496FA8, #A84959)' },
+    'Simic':           { fixed:'#4D927D', gradient:'linear-gradient(135deg, #3974A1, #64934E)' },
+    'Rakdos':          { fixed:'#9E4248', gradient:'linear-gradient(135deg, #633D58, #B83D2E)' },
+    'Golgari':         { fixed:'#607648', gradient:'linear-gradient(135deg, #504D3F, #567A46)' },
+    'Gruul':           { fixed:'#A75835', gradient:'linear-gradient(135deg, #8B3929, #62723E)' },
+
+    'Esper':           { fixed:'#7180A5', gradient:'linear-gradient(135deg, #C7C2A1, #6679A7, #62566D)' },
+    'Jeskai':          { fixed:'#A66570', gradient:'linear-gradient(135deg, #D2C58E, #557CA7, #B54D3B)' },
+    'Bant':            { fixed:'#69958A', gradient:'linear-gradient(135deg, #D3CA9A, #5283A4, #618A4D)' },
+    'Mardu':           { fixed:'#B5664D', gradient:'linear-gradient(135deg, #D1C17F, #725365, #B64731)' },
+    'Abzan':           { fixed:'#858B5C', gradient:'linear-gradient(135deg, #D5C995, #625E55, #5B7749)' },
+    'Naya':            { fixed:'#B46A45', gradient:'linear-gradient(135deg, #D5C47F, #B84D32, #5F7C47)' },
+    'Grixis':          { fixed:'#80516F', gradient:'linear-gradient(135deg, #416F9E, #554A70, #A7433B)' },
+    'Sultai':          { fixed:'#527B72', gradient:'linear-gradient(135deg, #3D7192, #514F65, #5D7D45)' },
+    'Temur':           { fixed:'#7B774B', gradient:'linear-gradient(135deg, #3D7198, #A94B42, #64814A)' },
+    'Jund':            { fixed:'#86513A', gradient:'linear-gradient(135deg, #5E4B45, #A54132, #557044)' },
+
+    'Yore-Tiller':     { fixed:'#897B86', gradient:'linear-gradient(120deg, #C8BD91, #557CA5, #66566D, #A8493B)' },
+    'Witch-Maw':       { fixed:'#718378', gradient:'linear-gradient(120deg, #CCC39A, #557CA0, #5B5364, #5D7D48)' },
+    'Ink-Treader':     { fixed:'#8B8060', gradient:'linear-gradient(120deg, #D0C391, #557CA0, #AE5140, #64834A)' },
+    'Dune-Brood':      { fixed:'#8D6D51', gradient:'linear-gradient(120deg, #D1C28F, #62566A, #A74835, #5D7847)' },
+    'Glint-Eye':       { fixed:'#75626C', gradient:'linear-gradient(120deg, #4E7198, #5A5069, #A74438, #5D7948)' },
+
+    'WUBRG':           { fixed:'#A28E61', gradient:'linear-gradient(110deg, #D1C58F, #4D7CA3, #62566D, #B54C3A, #63844B)' },
+    'Incolore':        { fixed:'#747B82', gradient:'linear-gradient(135deg, #555D64, #A8B0B6)' },
+    'Black Lotus':     { fixed:'#6B3AA8', gradient:'linear-gradient(135deg, #09080D, #6B3AA8, #3F7047)' },
+    'Retro Artifact':  { fixed:'#667078', gradient:'linear-gradient(135deg, #302B25, #78838A, #4F6258, #9A8350)' }
+  };
+
+  // Regroupement pour l'affichage du menu déroulant.
+  const THEME_GROUPS = [
+    { label: 'Par défaut',   names: ['Neutre'] },
+    { label: 'Monocouleurs', names: ['Blanc','Bleu','Noir','Rouge','Vert'] },
+    { label: 'Guildes',      names: ['Azorius','Orzhov','Boros','Selesnya','Dimir','Izzet','Simic','Rakdos','Golgari','Gruul'] },
+    { label: 'Tricolores',   names: ['Esper','Jeskai','Bant','Mardu','Abzan','Naya','Grixis','Sultai','Temur','Jund'] },
+    { label: 'Quadricolores',names: ['Yore-Tiller','Witch-Maw','Ink-Treader','Dune-Brood','Glint-Eye'] },
+    { label: 'Spéciaux',     names: ['WUBRG','Incolore','Black Lotus','Retro Artifact'] }
+  ];
+
+  // ---------- Tabs ----------
+  const tabBtns = document.querySelectorAll('.tab-btn');
+  const views = document.querySelectorAll('.view');
+
+  tabBtns.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      tabBtns.forEach(b=>{ b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
+      views.forEach(v=>v.classList.remove('active'));
+      btn.classList.add('active');
+      btn.setAttribute('aria-selected','true');
+      document.getElementById('view-'+btn.dataset.view).classList.add('active');
+      if(btn.dataset.view === 'tournament') renderTournamentPage();
+      if(btn.dataset.view === 'life') renderLifePlayerSelects();
+    });
+  });
+
+  // ---------- Theme toggle (clair/sombre + thème de couleur) ----------
+  const themeToggleBtn = document.getElementById('theme-toggle-btn');
+  const colorThemeBtn = document.getElementById('color-theme-btn');
+  const colorThemeMenu = document.getElementById('color-theme-menu');
+  const colorThemeLabel = document.getElementById('color-theme-label');
+  let currentTheme = 'dark';
+  let currentColorTheme = 'Neutre';
+
+  // Éclaircit (amount > 0) ou assombrit (amount < 0) une couleur hexadécimale.
+  function shadeHex(hex, amount){
+    const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    if(!m) return hex;
+    const ch = [1,2,3].map(i => {
+      let v = parseInt(m[i], 16);
+      v = amount >= 0 ? v + (255 - v) * amount : v * (1 + amount);
+      return Math.max(0, Math.min(255, Math.round(v)));
+    });
+    return '#' + ch.map(v => v.toString(16).padStart(2, '0')).join('');
+  }
+
+  function applyColorTheme(){
+    const t = COLOR_THEMES[currentColorTheme] || COLOR_THEMES['Neutre'];
+    const root = document.documentElement;
+    let accent, strong;
+    if(currentTheme === 'light'){
+      accent = t.accentLight || shadeHex(t.fixed, -0.18);
+      strong = t.strongLight || shadeHex(t.fixed, -0.32);
+    } else {
+      accent = t.fixed;
+      strong = t.strongDark || shadeHex(t.fixed, 0.28);
+    }
+    root.style.setProperty('--accent', accent);
+    root.style.setProperty('--accent-strong', strong);
+    root.style.setProperty('--accent-gradient', t.gradient);
+    // Le calculateur de mana réutilise --gold* : on les aligne sur l'accent du thème.
+    root.style.setProperty('--gold', accent);
+    root.style.setProperty('--gold-dim', accent);
+    root.style.setProperty('--gold-soft', accent + '24');   // accent à ~14% d'opacité
+    colorThemeLabel.textContent = currentColorTheme;
+    colorThemeMenu.querySelectorAll('.theme-option').forEach(b => {
+      b.classList.toggle('selected', b.dataset.theme === currentColorTheme);
+    });
+  }
+
+  function applyTheme(){
+    if(currentTheme === 'light'){
+      document.documentElement.setAttribute('data-theme', 'light');
+      themeToggleBtn.textContent = '🌙 Mode sombre';
+      themeToggleBtn.setAttribute('aria-pressed', 'true');
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+      themeToggleBtn.textContent = '☀️ Mode clair';
+      themeToggleBtn.setAttribute('aria-pressed', 'false');
+    }
+    applyColorTheme();   // l'accent dépend du mode clair/sombre
+  }
+
+  themeToggleBtn.addEventListener('click', () => {
+    currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    applyTheme();
+    persistState();
+  });
+
+  // Construction du menu déroulant des thèmes de couleur.
+  function buildColorThemeMenu(){
+    colorThemeMenu.innerHTML = '';
+    THEME_GROUPS.forEach(group => {
+      const label = document.createElement('div');
+      label.className = 'theme-group-label';
+      label.textContent = group.label;
+      colorThemeMenu.appendChild(label);
+      group.names.forEach(name => {
+        const t = COLOR_THEMES[name];
+        if(!t) return;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'theme-option';
+        btn.dataset.theme = name;
+        btn.setAttribute('role', 'menuitem');
+        const dot = document.createElement('span');
+        dot.className = 'theme-option-dot';
+        dot.style.background = t.gradient;
+        const span = document.createElement('span');
+        span.textContent = name;
+        btn.appendChild(dot);
+        btn.appendChild(span);
+        btn.addEventListener('click', () => {
+          currentColorTheme = name;
+          applyColorTheme();
+          closeColorThemeMenu();
+          persistState();
+        });
+        colorThemeMenu.appendChild(btn);
+      });
+    });
+  }
+
+  // Positionne le menu pour qu'il reste toujours dans l'écran.
+  // Sur mobile le bouton peut se retrouver près du bord gauche (header replié) : un menu
+  // ancré à droite déborderait alors hors cadre. On bascule donc en position fixe pleine
+  // largeur sous le bouton. Sur desktop on garde l'ancrage à droite, avec un garde-fou.
+  function positionColorThemeMenu(){
+    const m = colorThemeMenu;
+    m.style.position = ''; m.style.top = ''; m.style.left = ''; m.style.right = ''; m.style.width = '';
+
+    const isNarrow = typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 560px)').matches;
+    if(isNarrow){
+      const r = colorThemeBtn.getBoundingClientRect();
+      m.style.position = 'fixed';
+      m.style.top = (r.bottom + 6) + 'px';
+      m.style.left = '12px';
+      m.style.right = '12px';
+      m.style.width = 'auto';
+      return;
+    }
+    // Desktop : si l'ancrage à droite fait sortir le menu par la gauche, on l'ancre à gauche.
+    const rect = m.getBoundingClientRect();
+    if(rect.left < 8){
+      m.style.right = 'auto';
+      m.style.left = '0';
+    }
+  }
+
+  function openColorThemeMenu(){
+    colorThemeMenu.hidden = false;
+    positionColorThemeMenu();
+    colorThemeBtn.setAttribute('aria-expanded', 'true');
+  }
+  function closeColorThemeMenu(){
+    colorThemeMenu.hidden = true;
+    colorThemeBtn.setAttribute('aria-expanded', 'false');
+  }
+
+  // Repositionne si l'utilisateur tourne son téléphone ou redimensionne la fenêtre.
+  window.addEventListener('resize', () => { if(!colorThemeMenu.hidden) positionColorThemeMenu(); });
+
+  colorThemeBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    if(colorThemeMenu.hidden) openColorThemeMenu(); else closeColorThemeMenu();
+  });
+  document.addEventListener('click', e => {
+    if(!colorThemeMenu.hidden && !colorThemeMenu.contains(e.target) && e.target !== colorThemeBtn){
+      closeColorThemeMenu();
+    }
+  });
+  document.addEventListener('keydown', e => {
+    if(e.key === 'Escape' && !colorThemeMenu.hidden) closeColorThemeMenu();
+  });
+
+  // ---------- Helpers ----------
+  function showError(el, msg){ el.textContent = msg; el.hidden = false; }
+  function hideError(el){ el.hidden = true; el.textContent = ''; }
+
+  // ---------- Modale de confirmation réutilisable ----------
+  // openModal(title, message, buttons) où buttons = [{ label, style, onClick }].
+  // style: 'primary' | 'secondary' (défaut). Un bouton « Annuler » ferme sans rien faire.
+  const modalOverlay = document.getElementById('modal-overlay');
+  const modalTitle = document.getElementById('modal-title');
+  const modalMessage = document.getElementById('modal-message');
+  const modalActions = document.getElementById('modal-actions');
+
+  function closeModal(){
+    modalOverlay.hidden = true;
+    modalActions.innerHTML = '';
+    // Retire tout contenu dynamique inséré entre le message et les boutons (ex. liste d'abandons).
+    const box = modalActions.parentNode;
+    box.querySelectorAll('.modal-dynamic').forEach(el => el.remove());
+  }
+
+  function openModal(title, message, buttons){
+    modalTitle.textContent = title;
+    modalMessage.textContent = message;
+    modalActions.innerHTML = '';
+    buttons.forEach(b => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = b.style === 'primary' ? 'primary' : 'secondary';
+      btn.textContent = b.label;
+      btn.addEventListener('click', () => {
+        closeModal();
+        if(typeof b.onClick === 'function') b.onClick();
+      });
+      modalActions.appendChild(btn);
+    });
+    modalOverlay.hidden = false;
+  }
+
+  // Fermeture par clic sur le fond ou touche Échap.
+  modalOverlay.addEventListener('click', e => { if(e.target === modalOverlay) closeModal(); });
+  document.addEventListener('keydown', e => {
+    if(e.key === 'Escape' && !modalOverlay.hidden) closeModal();
+  });
+
+  // Empêche la saisie de virgules, points ou tout caractère non numérique dans un champ nombre.
+  function enforceIntegerInput(el){
+    el.addEventListener('input', () => {
+      const cleaned = el.value.replace(/[^\d]/g, '');
+      if(cleaned !== el.value) el.value = cleaned;
+    });
+  }
+  ['boosters-per-player', 'range-min', 'range-max', 'num-tables', 'players-per-table', 'match-duration', 'max-rounds'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) enforceIntegerInput(el);
+  });
+
+  function shuffle(arr){
+    for(let i = arr.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  function letterFromIndex(i){
+    let s = '';
+    i++;
+    while(i > 0){
+      const rem = (i - 1) % 26;
+      s = String.fromCharCode(65 + rem) + s;
+      i = Math.floor((i - 1) / 26);
+    }
+    return s;
+  }
+
+  // Place les joueurs face à face sur les deux côtés longs (côte à côte le long
+  // de chaque côté), et reporte le joueur en trop sur un côté court si le nombre est impair.
+  function computeSeatLayout(n){
+    const half = Math.floor(n / 2);
+    const remainder = n - half * 2;
+    const w = Math.max(160, half > 0 ? half * 50 : 160);
+    const h = 90;
+    const positions = new Array(n);
+
+    for(let k = 0; k < half; k++){
+      const x = (k + 0.5) * w / half;
+      positions[2 * k] = { x, y: 0, edge: 'top' };
+      positions[2 * k + 1] = { x, y: h, edge: 'bottom' };
+    }
+    if(remainder === 1){
+      positions[n - 1] = { x: w, y: h / 2, edge: 'right' };
+    }
+    return { positions, w, h, half };
+  }
+
+  // Estimation grossière de la largeur d'un texte (en px) pour dimensionner les marges du schéma.
+  function estimateTextWidth(text, fontSize){
+    return text.length * fontSize * 0.62;
+  }
+
+  function buildTableSvg(group){
+    const n = group.seats.length;
+    const { positions, w, h, half } = computeSeatLayout(n);
+    const labelGap = 20;
+    const fontSize = 11;
+    const basePad = 42;
+
+    // Marges asymétriques : on élargit le côté horizontal nécessaire si une étiquette (ex : joueur
+    // sur le petit côté) est trop longue pour tenir dans la marge par défaut, pour qu'elle ne sorte
+    // jamais du cadre du SVG. Les marges verticales restent fixes (aucune étiquette ne déborde en haut/bas).
+    let padLeft = basePad, padRight = basePad;
+    group.seats.forEach((seat, i) => {
+      const p = positions[i];
+      if(!p) return;
+      const textW = estimateTextWidth(seat.pos + '. ' + seat.name, fontSize);
+      if(p.edge === 'right'){
+        padRight = Math.max(padRight, labelGap + textW + 12);
+      } else if(p.edge === 'left'){
+        padLeft = Math.max(padLeft, labelGap + textW + 12);
+      } else {
+        const halfText = textW / 2;
+        const overflowLeft = halfText - p.x;
+        const overflowRight = halfText - (w - p.x);
+        if(overflowLeft > 0) padLeft = Math.max(padLeft, basePad + overflowLeft);
+        if(overflowRight > 0) padRight = Math.max(padRight, basePad + overflowRight);
+      }
+    });
+
+    const svgW = w + padLeft + padRight;
+    const svgH = h + basePad * 2;
+    const ox = padLeft, oy = basePad;
+
+    let pairLines = '';
+    for(let k = 0; k < half; k++){
+      const x = ox + (k + 0.5) * w / half;
+      pairLines += '<line x1="' + x + '" y1="' + oy + '" x2="' + x + '" y2="' + (oy + h) + '" stroke="var(--accent)" stroke-width="1" stroke-dasharray="3,4" opacity="0.35"/>';
+    }
+
+    let seatEls = '';
+    group.seats.forEach((seat, i) => {
+      const p = positions[i];
+      if(!p) return;
+      const px = ox + p.x, py = oy + p.y;
+      let lx = px, ly = py, anchor = 'middle';
+      if(p.edge === 'top'){ ly = py - labelGap; }
+      else if(p.edge === 'bottom'){ ly = py + labelGap; }
+      else if(p.edge === 'right'){ lx = px + labelGap; anchor = 'start'; }
+      else { lx = px - labelGap; anchor = 'end'; }
+
+      seatEls += '<line x1="' + px + '" y1="' + py + '" x2="' + lx + '" y2="' + ly + '" stroke="var(--border)" stroke-width="1"/>' +
+        '<circle cx="' + px + '" cy="' + py + '" r="4" fill="var(--accent)"/>' +
+        '<text x="' + lx + '" y="' + ly + '" text-anchor="' + anchor + '" dominant-baseline="middle" font-size="' + fontSize + '" fill="var(--text)">' +
+        escapeHtml(seat.pos + '. ' + seat.name) + '</text>';
+    });
+
+    return '<svg viewBox="0 0 ' + svgW + ' ' + svgH + '" style="width:100%;height:auto;display:block;" role="img">' +
+      '<rect x="' + ox + '" y="' + oy + '" width="' + w + '" height="' + h + '" rx="8" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>' +
+      '<text x="' + (ox + w / 2) + '" y="' + (oy + h / 2) + '" text-anchor="middle" dominant-baseline="middle" font-size="13" font-weight="700" fill="var(--accent-strong)">Table ' + escapeHtml(group.label) + '</text>' +
+      pairLines + seatEls + '</svg>';
+  }
+
+  function escapeHtml(str){
+    return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function invalidatePreviousDraws(){
+    state.draft = null;
+    state.tables = null;
+    document.getElementById('booster-results').innerHTML = '';
+    document.getElementById('table-results').innerHTML = '';
+  }
+
+  // ---------- Persistance locale (résiste à un rafraîchissement accidentel) ----------
+  // localStorage est bloqué dans l'aperçu Claude.ai (environnement sandboxé) : on encapsule
+  // chaque appel dans un try/catch pour ne jamais planter. Si le fichier est ouvert directement
+  // dans un navigateur (ou hébergé ailleurs), la sauvegarde fonctionne normalement.
+  const STORAGE_KEY = 'mtg-compagnon-state-v1';
+
+  function persistState(){
+    try{
+      const payload = {
+        players: state.players,
+        draft: state.draft,
+        tables: state.tables,
+        tournament: {
+          rounds: tournament.rounds,
+          droppedPlayers: [...tournament.droppedPlayers],
+          timerEndTime: roundTimer.endTime,
+          timerSoundPlayed: roundTimer.soundPlayed
+        },
+        life: {
+          names: life.names,
+          startTotal: life.startTotal,
+          totals: life.totals,
+          poison: life.poison,
+          history: life.history,
+          started: life.started
+        },
+        prefs: {
+          theme: currentTheme,
+          colorTheme: currentColorTheme
+        }
+      };
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    } catch(e){
+      // Stockage indisponible : on continue simplement en mémoire pour cette session.
+    }
+  }
+
+  function restoreStateIfAvailable(){
+    let saved = null;
+    try{
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if(raw) saved = JSON.parse(raw);
+    } catch(e){
+      saved = null;
+    }
+    if(!saved) return;
+
+    if(Array.isArray(saved.players)) state.players = saved.players;
+    if(saved.draft) state.draft = saved.draft;
+    if(saved.tables) state.tables = saved.tables;
+    if(saved.tournament){
+      if(Array.isArray(saved.tournament.rounds)) tournament.rounds = saved.tournament.rounds;
+      if(Array.isArray(saved.tournament.droppedPlayers)) tournament.droppedPlayers = new Set(saved.tournament.droppedPlayers);
+      if(typeof saved.tournament.timerEndTime === 'number') roundTimer.endTime = saved.tournament.timerEndTime;
+      roundTimer.soundPlayed = !!saved.tournament.timerSoundPlayed;
+      let maxId = 0;
+      tournament.rounds.forEach(round => round.matches.forEach(m => {
+        const num = parseInt(String(m.id).replace('m', ''), 10);
+        if(Number.isInteger(num) && num > maxId) maxId = num;
+      }));
+      matchIdCounter = maxId + 1;
+    }
+    if(saved.prefs){
+      if(saved.prefs.theme === 'light' || saved.prefs.theme === 'dark') currentTheme = saved.prefs.theme;
+      if(saved.prefs.colorTheme && COLOR_THEMES[saved.prefs.colorTheme]) currentColorTheme = saved.prefs.colorTheme;
+    }
+    if(saved.life){
+      if(Array.isArray(saved.life.names)) life.names = saved.life.names;
+      if(Number.isInteger(saved.life.startTotal)) life.startTotal = saved.life.startTotal;
+      if(Array.isArray(saved.life.totals)) life.totals = saved.life.totals;
+      if(Array.isArray(saved.life.poison)) life.poison = saved.life.poison;
+      if(Array.isArray(saved.life.history)) life.history = saved.life.history;
+      life.started = !!saved.life.started;
+    }
+  }
+
+  // ---------- Players ----------
+  const playerInput = document.getElementById('player-name-input');
+  const addPlayerBtn = document.getElementById('add-player-btn');
+  const playerError = document.getElementById('player-error');
+  const playerChipList = document.getElementById('player-chip-list');
+  const playerCountEl = document.getElementById('player-count');
+
+  function randomPlaceholderName(){
+    const available = RANDOM_NAMES.filter(n => !state.players.some(p => p.toLowerCase() === n.toLowerCase()));
+    const pool = available.length > 0 ? available : RANDOM_NAMES;
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+  function refreshPlayerPlaceholder(){
+    playerInput.placeholder = 'Ex : ' + randomPlaceholderName();
+  }
+
+  function renderPlayers(){
+    playerChipList.innerHTML = '';
+    state.players.forEach((name, idx) => {
+      const chip = document.createElement('div');
+      chip.className = 'chip';
+
+      const span = document.createElement('span');
+      span.textContent = name;
+
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'icon-btn';
+      removeBtn.type = 'button';
+      removeBtn.setAttribute('aria-label', 'Retirer ' + name);
+      removeBtn.textContent = '×';
+      removeBtn.addEventListener('click', () => {
+        state.players.splice(idx, 1);
+        invalidatePreviousDraws();
+        renderPlayers();
+      });
+
+      chip.appendChild(span);
+      chip.appendChild(removeBtn);
+      playerChipList.appendChild(chip);
+    });
+    playerCountEl.textContent = state.players.length + (state.players.length > 1 ? ' joueurs' : ' joueur');
+    refreshPlayerPlaceholder();
+    persistState();
+  }
+
+  function addPlayer(){
+    hideError(playerError);
+    const name = playerInput.value.trim();
+    if(!name){ showError(playerError, 'Indiquez un nom de joueur.'); return; }
+    if(state.players.some(p => p.toLowerCase() === name.toLowerCase())){
+      showError(playerError, 'Ce joueur est déjà dans la liste.');
+      return;
+    }
+    state.players.push(name);
+    playerInput.value = '';
+    invalidatePreviousDraws();
+    renderPlayers();
+    playerInput.focus();
+  }
+
+  addPlayerBtn.addEventListener('click', addPlayer);
+  playerInput.addEventListener('keydown', e => {
+    if(e.key === 'Enter'){ e.preventDefault(); addPlayer(); }
+  });
+
+  // ---------- Booster draw ----------
+  const boostersPerPlayerInput = document.getElementById('boosters-per-player');
+  const rangeMinInput = document.getElementById('range-min');
+  const rangeMaxInput = document.getElementById('range-max');
+  const drawBoostersBtn = document.getElementById('draw-boosters-btn');
+  const boosterError = document.getElementById('booster-error');
+  const boosterResults = document.getElementById('booster-results');
+
+  function drawBoosters(){
+    hideError(boosterError);
+    boosterResults.innerHTML = '';
+
+    if(state.players.length === 0){
+      showError(boosterError, 'Ajoutez au moins un joueur avant de lancer le tirage.');
+      return;
+    }
+    const perPlayer = parseInt(boostersPerPlayerInput.value, 10);
+    const min = parseInt(rangeMinInput.value, 10);
+    const max = parseInt(rangeMaxInput.value, 10);
+
+    if(!Number.isInteger(perPlayer) || perPlayer < 1){
+      showError(boosterError, 'Le nombre de boosters par joueur doit être un entier positif.');
+      return;
+    }
+    if(!Number.isInteger(min) || !Number.isInteger(max) || max < min){
+      showError(boosterError, 'La plage de numéros est invalide (le numéro max doit être supérieur ou égal au min).');
+      return;
+    }
+    const poolSize = max - min + 1;
+    const needed = perPlayer * state.players.length;
+    if(poolSize < needed){
+      showError(boosterError, 'La plage ' + min + '–' + max + ' ne contient que ' + poolSize + ' numéro(s), il en faut ' + needed + ' pour ' + state.players.length + ' joueur(s) × ' + perPlayer + ' booster(s).');
+      return;
+    }
+
+    const pool = [];
+    for(let n = min; n <= max; n++) pool.push(n);
+    shuffle(pool);
+
+    const assignment = {};
+    state.players.forEach((name, i) => {
+      assignment[name] = pool.slice(i * perPlayer, (i + 1) * perPlayer).sort((a,b) => a - b);
+    });
+    const remaining = pool.slice(needed).sort((a,b) => a - b);
+
+    state.draft = { perPlayer, min, max, assignment, remaining };
+    renderBoosterResults();
+  }
+
+  function renderBoosterResults(){
+    boosterResults.innerHTML = '';
+    if(!state.draft) return;
+    Object.entries(state.draft.assignment).forEach(([name, nums]) => {
+      const row = document.createElement('div');
+      row.className = 'result-item';
+
+      const nameEl = document.createElement('span');
+      nameEl.className = 'name';
+      nameEl.textContent = name;
+
+      const numsEl = document.createElement('span');
+      numsEl.className = 'nums';
+      numsEl.textContent = (nums.length > 1 ? 'Boosters ' : 'Booster ') + nums.join(', ');
+
+      row.appendChild(nameEl);
+      row.appendChild(numsEl);
+      boosterResults.appendChild(row);
+    });
+
+    const summary = document.createElement('div');
+    summary.className = 'alert info';
+    const remaining = state.draft.remaining || [];
+    if(remaining.length === 0){
+      summary.textContent = 'Tous les boosters de la plage sélectionnée ont été distribués.';
+    } else {
+      summary.textContent = 'Boosters restants : ' + remaining.length + ' (numéros non distribués : ' + remaining.join(', ') + ')';
+    }
+    boosterResults.appendChild(summary);
+    persistState();
+  }
+
+  drawBoostersBtn.addEventListener('click', drawBoosters);
+
+  // ---------- Table draw ----------
+  const numTablesInput = document.getElementById('num-tables');
+  const playersPerTableInput = document.getElementById('players-per-table');
+  const drawTablesBtn = document.getElementById('draw-tables-btn');
+  const tableError = document.getElementById('table-error');
+  const tableResults = document.getElementById('table-results');
+
+  function drawTables(){
+    hideError(tableError);
+    tableResults.innerHTML = '';
+
+    if(state.players.length === 0){
+      showError(tableError, 'Ajoutez au moins un joueur avant de lancer le tirage.');
+      return;
+    }
+    const numTables = parseInt(numTablesInput.value, 10);
+    const perTable = parseInt(playersPerTableInput.value, 10);
+
+    if(!Number.isInteger(numTables) || numTables < 1){
+      showError(tableError, 'Le nombre de tables doit être un entier positif.');
+      return;
+    }
+    if(!Number.isInteger(perTable) || perTable < 1){
+      showError(tableError, 'Le nombre de joueurs par table doit être un entier positif.');
+      return;
+    }
+    const capacity = numTables * perTable;
+    if(capacity < state.players.length){
+      showError(tableError, numTables + ' table(s) × ' + perTable + ' joueur(s) = ' + capacity + ' place(s), ce qui est insuffisant pour ' + state.players.length + ' joueur(s).');
+      return;
+    }
+
+    const shuffled = shuffle([...state.players]);
+    const assignment = {};
+    const groups = [];
+    let idx = 0;
+
+    for(let t = 0; t < numTables; t++){
+      const label = letterFromIndex(t);
+      const seats = [];
+      for(let s = 0; s < perTable && idx < shuffled.length; s++){
+        const name = shuffled[idx++];
+        seats.push({ name, pos: s + 1 });
+        assignment[name] = { table: label, position: s + 1, size: perTable };
+      }
+      if(seats.length > 0) groups.push({ label, seats, size: perTable });
+    }
+
+    state.tables = { numTables, perTable, assignment, groups };
+    renderTableResults();
+  }
+
+  function renderTableResults(){
+    tableResults.innerHTML = '';
+    if(!state.tables) return;
+    state.tables.groups.forEach(group => {
+      const wrap = document.createElement('div');
+      wrap.className = 'table-group';
+
+      const h3 = document.createElement('h3');
+      h3.textContent = 'Table ' + group.label + ' (' + group.seats.length + '/' + group.size + ')';
+      wrap.appendChild(h3);
+
+      const diagramWrap = document.createElement('div');
+      diagramWrap.className = 'table-diagram';
+      diagramWrap.setAttribute('aria-hidden', 'true');
+      diagramWrap.innerHTML = buildTableSvg(group);
+      wrap.appendChild(diagramWrap);
+
+      const ul = document.createElement('ul');
+      ul.className = 'seat-list';
+      group.seats.forEach(seat => {
+        const li = document.createElement('li');
+        const posSpan = document.createElement('span');
+        posSpan.className = 'seat-pos';
+        posSpan.textContent = seat.pos + '/' + group.size;
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = seat.name;
+        li.appendChild(posSpan);
+        li.appendChild(nameSpan);
+        ul.appendChild(li);
+      });
+
+      wrap.appendChild(ul);
+      tableResults.appendChild(wrap);
+    });
+    persistState();
+  }
+
+  drawTablesBtn.addEventListener('click', drawTables);
+
+  // ---------- Reset ----------
+  // Réinitialise uniquement les données de la page Draft (joueurs + tirages).
+  function resetDraftOnly(){
+    state.players = [];
+    invalidatePreviousDraws();
+    renderPlayers();
+    renderLifePlayerSelects();
+    hideError(playerError);
+    hideError(boosterError);
+    hideError(tableError);
+  }
+
+  // Réinitialise l'intégralité de l'application (draft + tournoi + points de vie).
+  function resetEverything(){
+    resetDraftOnly();
+    // Tournoi
+    resetRoundTimer();
+    tournament.rounds = [];
+    tournament.droppedPlayers.clear();
+    renderTournamentPage();
+    // Points de vie
+    life.started = false;
+    life.names = [null, null];
+    life.totals = [null, null];
+    life.poison = [0, 0];
+    life.history = [];
+    syncLifeUiFromState();
+    persistState();
+  }
+
+  document.getElementById('reset-draft-btn').addEventListener('click', () => {
+    // Si un tournoi ou une partie de vie est en cours, proposer le choix ; sinon reset direct du draft.
+    const somethingElseActive = tournament.rounds.length > 0 || life.started;
+    if(!somethingElseActive){
+      resetDraftOnly();
+      persistState();
+      return;
+    }
+    openModal(
+      'Réinitialiser',
+      'Un tournoi ou une partie de points de vie est en cours. Que souhaitez-vous réinitialiser ?',
+      [
+        { label: 'Tout réinitialiser', style: 'primary', onClick: resetEverything },
+        { label: 'Seulement le draft', style: 'secondary', onClick: () => { resetDraftOnly(); persistState(); } },
+        { label: 'Annuler', style: 'secondary' }
+      ]
+    );
+  });
+
+  // ---------- Points de vie ----------
+  const POISON_LETHAL = 10;
+  const life = {
+    names: [null, null],
+    startTotal: 20,
+    totals: [null, null],
+    poison: [0, 0],
+    history: [],   // [{ time: 'HH:MM', slot, kind: 'life'|'poison', delta, value }]
+    started: false
+  };
+  const HISTORY_MAX = 200;   // plafond du nombre d'entrées d'historique conservées
+
+  // Icône poison (SVG inline → visible même hors ligne, aucune requête réseau).
+  const POISON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 1059.7" focusable="false"><path d="m598 529c0.6-57.8-17.7-116.1-53.7-161.4-17.4-19.1-31.7-40.9-50.1-59-40.6-40.3-101.4-43-150.3-68.3-2.9-25.5-12.2-51-6.5-76.7 1.7-8.6 4.3-17.2-0.3-25.4-12.8-29.5-1.8-61.6-4.1-92.4-1.7-16.1-0.6-35.8-16-45.7-3.6 33.5-15.9 64.7-25.9 96.4-4.6 24.8-4.6 50.6-15.3 73.9 6.8 23.7-6.6 43.6-21.1 61.1-32.1 16.4-70.2 20.3-98.2 44.4-19.9 16.9-41.4 31.7-63.7 45.5-16.7 20.9-35.2 41.1-42.7 67.5-29.9 36.1-33.4 84.5-50.3 126.7-0.3 62.7 12.4 130.2 52.4 180.5 28.7 23.7 48.7 55.5 77.3 79.1 27.5 16.4 56.8 29.9 85.2 44.6 18.5 4.3 37.6 6.4 56 11.5 14.9 76.9 25.1 155.6 55.1 228.5 9.9-29.9 8.7-62 17.3-92.3 12.1-44.7-12.7-91.2 1.3-135.2 21-18.7 55.9-6.6 79.2-22.6 44.3-27.3 91.1-53.8 123.2-95.6 11.9-24 37.1-41.9 37.1-70.7 0.2-38.7 22.8-75 14.2-114.2m-328.4 237.2c-32.1-7.8-61.9-23.1-88.8-41.9-28.9-19.3-39.7-55.2-68.3-75-26.7-31.9-21-75.5-31.9-113.3 4.4-26.4 9.6-52.5 12.3-79.2 13-21.1 33.2-38 38.7-63.5 19.1-27.4 48.2-46.3 71.6-70.1 17-19.6 44.1-11.3 66.4-12.1-2.2 21.6-4 44 1.4 65.3 2.6 13.1 8.6 26 6.5 39.7-4.5 29.2 6.5 58.5-1.3 87.3-15.6 60.3 1.4 121.2 2.9 182-2.2 26.9-3.5 54-9.6 80.6m243.1-114.3c-21.2 15.1-39.3 33.6-57.8 51.7-32.2 22.3-64.1 45.8-102.4 57 3.4-27.3 6.8-55.5-1.9-82.2-21.4-60.5 4.8-123.8 9.2-184.9-3.9-36.4-0.2-75.2-16.9-108.7-2.2-25.1 8.7-49.5 16.1-73.1 25.3 10.1 49.2 23.8 70.2 41.3 25.5 19.1 64.5 31.4 70.2 67 2.9 23.4 28.5 37.5 27.7 61.4-1.6 56.8 6.3 116.3-14.4 170.5" fill="currentColor"/></svg>';
+
+  const life1Select = document.getElementById('life-player1-select');
+  const life2Select = document.getElementById('life-player2-select');
+  const lifeTotalPicker = document.getElementById('life-total-picker');
+  const lifeSetupError = document.getElementById('life-setup-error');
+  const lifeStartBtn = document.getElementById('life-start-btn');
+  const lifeSetupCard = document.getElementById('life-setup-card');
+  const lifePageLayout = document.getElementById('life-page-layout');
+  const lifeActions = document.getElementById('life-actions');
+  const lifeResetBtn = document.getElementById('life-reset-btn');
+  const lifeFullscreenBtn = document.getElementById('life-fullscreen-btn');
+  const lifeFullscreenOverlay = document.getElementById('life-fullscreen-overlay');
+  const fsExitBtn = document.getElementById('fs-exit-btn');
+  const lifeHistoryCard = document.getElementById('life-history-card');
+  const lifeHistoryList = document.getElementById('life-history-list');
+
+  // Injecte l'icône poison SVG dans tous les emplacements prévus (page + plein écran).
+  document.querySelectorAll('.poison-icon').forEach(el => { el.innerHTML = POISON_SVG; });
+
+  function renderLifePlayerSelects(){
+    [life1Select, life2Select].forEach((sel, idx) => {
+      const prevValue = sel.value || life.names[idx] || '';
+      sel.innerHTML = '<option value="">— Choisir —</option>' +
+        state.players.map(name => '<option value="' + escapeHtml(name) + '">' + escapeHtml(name) + '</option>').join('');
+      if(state.players.includes(prevValue)) sel.value = prevValue;
+    });
+  }
+
+  lifeTotalPicker.querySelectorAll('.score-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      lifeTotalPicker.querySelectorAll('.score-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      life.startTotal = parseInt(btn.dataset.total, 10);
+    });
+  });
+
+  // Chaque joueur peut avoir plusieurs affichages simultanés (page normale + vue plein écran) :
+  // on met à jour tous les éléments correspondant au slot via classe + data-slot plutôt qu'un id fixe.
+  function updateLifeBlockDom(slot){
+    const name = life.names[slot - 1] || '';
+    const total = life.totals[slot - 1];
+    const poison = life.poison[slot - 1];
+    document.querySelectorAll('.life-name-display[data-slot="' + slot + '"]').forEach(el => {
+      el.textContent = name;
+    });
+    document.querySelectorAll('.life-total-display[data-slot="' + slot + '"]').forEach(el => {
+      el.textContent = total;
+      el.classList.toggle('negative', total <= 0);
+    });
+    document.querySelectorAll('.poison-count-display[data-slot="' + slot + '"]').forEach(el => {
+      el.textContent = poison;
+      el.classList.toggle('lethal', poison >= POISON_LETHAL);
+    });
+  }
+
+  function pad2(n){ return String(n).padStart(2, '0'); }
+
+  function logHistory(slot, kind, delta, value){
+    const now = new Date();
+    life.history.push({
+      time: pad2(now.getHours()) + ':' + pad2(now.getMinutes()),
+      slot, kind, delta, value
+    });
+    // Plafond : on ne conserve que les HISTORY_MAX dernières entrées (borne mémoire + DOM).
+    if(life.history.length > HISTORY_MAX){
+      life.history.splice(0, life.history.length - HISTORY_MAX);
+    }
+    renderLifeHistory();
+  }
+
+  function renderLifeHistory(){
+    if(!lifeHistoryList) return;
+    if(life.history.length === 0){
+      lifeHistoryList.innerHTML = '<div class="life-history-empty">Aucune variation pour l\'instant.</div>';
+      return;
+    }
+    // Ordre anti-chronologique (le plus récent en haut).
+    lifeHistoryList.innerHTML = life.history.slice().reverse().map(h => {
+      const who = life.names[h.slot - 1] || ('Joueur ' + h.slot);
+      const sign = h.delta > 0 ? '+' : '';
+      const dirClass = h.delta > 0 ? 'up' : 'down';
+      const label = h.kind === 'poison' ? 'poison' : 'PV';
+      return '<div class="life-history-entry">' +
+        '<span class="life-history-time">' + h.time + '</span>' +
+        '<span class="life-history-who">' + escapeHtml(who) + '</span>' +
+        '<span class="life-history-change ' + dirClass + '">' + sign + h.delta + ' ' + label + ' → ' + h.value + '</span>' +
+        '</div>';
+    }).join('');
+  }
+
+  function changeLife(slot, delta){
+    life.totals[slot - 1] += delta;
+    updateLifeBlockDom(slot);
+    logHistory(slot, 'life', delta, life.totals[slot - 1]);
+    persistState();
+  }
+
+  function changePoison(slot, delta){
+    const next = life.poison[slot - 1] + delta;
+    if(next < 0) return; // pas de poison négatif
+    life.poison[slot - 1] = next;
+    updateLifeBlockDom(slot);
+    logHistory(slot, 'poison', delta, next);
+    persistState();
+  }
+
+  // Gestionnaires délégués : couvrent page normale ET plein écran (mêmes classes).
+  // Scopé sur les deux conteneurs vie (au lieu de document) pour ne pas traiter tous les clics de l'app.
+  function handleLifeDelegatedClick(e){
+    const lifeBtn = e.target.closest('.life-delta-btn');
+    if(lifeBtn){
+      const slot = parseInt(lifeBtn.dataset.slot, 10);
+      const delta = parseInt(lifeBtn.dataset.delta, 10);
+      if(slot && Number.isInteger(delta)) changeLife(slot, delta);
+      return;
+    }
+    const poisonBtn = e.target.closest('.poison-delta-btn');
+    if(poisonBtn){
+      const slot = parseInt(poisonBtn.dataset.slot, 10);
+      const delta = parseInt(poisonBtn.dataset.delta, 10);
+      if(slot && Number.isInteger(delta)) changePoison(slot, delta);
+    }
+  }
+  lifePageLayout.addEventListener('click', handleLifeDelegatedClick);
+  lifeFullscreenOverlay.addEventListener('click', handleLifeDelegatedClick);
+
+  // ---------- Dés et pièce (communs aux deux joueurs, dupliqués en plein écran) ----------
+  function setDiceResult(text){
+    document.querySelectorAll('.dice-result').forEach(el => { el.textContent = text; });
+  }
+  document.querySelectorAll('.dice-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const sides = parseInt(btn.dataset.die, 10);
+      const roll = Math.floor(Math.random() * sides) + 1;
+      setDiceResult('🎲 D' + sides + ' : ' + roll);
+    });
+  });
+  document.querySelectorAll('.coin-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const result = Math.random() < 0.5 ? 'Pile' : 'Face';
+      setDiceResult('🪙 ' + result);
+    });
+  });
+
+  function syncLifeUiFromState(){
+    lifeTotalPicker.querySelectorAll('.score-btn').forEach(b => {
+      b.classList.toggle('selected', parseInt(b.dataset.total, 10) === life.startTotal);
+    });
+    if(life.started){
+      lifeSetupCard.hidden = true;
+      lifePageLayout.hidden = false;
+      lifeActions.hidden = false;
+      lifeHistoryCard.hidden = false;
+      updateLifeBlockDom(1);
+      updateLifeBlockDom(2);
+      renderLifeHistory();
+    } else {
+      lifeSetupCard.hidden = false;
+      lifePageLayout.hidden = true;
+      lifeActions.hidden = true;
+      lifeHistoryCard.hidden = true;
+    }
+  }
+
+  // Choisit deux noms aléatoires distincts dans la liste des 20 (pour un démarrage sans nom saisi).
+  function pickTwoRandomNames(){
+    const pool = shuffle([...RANDOM_NAMES]);
+    return [pool[0], pool[1]];
+  }
+
+  lifeStartBtn.addEventListener('click', () => {
+    hideError(lifeSetupError);
+    let p1 = life1Select.value, p2 = life2Select.value;
+
+    // Démarrage autorisé sans nom : on complète avec des noms aléatoires de la liste.
+    if(!p1 && !p2){
+      const [r1, r2] = pickTwoRandomNames();
+      p1 = r1; p2 = r2;
+    } else if(!p1 || !p2){
+      // Un seul nom choisi : on tire l'autre au hasard (différent du premier).
+      const chosen = p1 || p2;
+      const others = RANDOM_NAMES.filter(n => n !== chosen);
+      const rand = others[Math.floor(Math.random() * others.length)];
+      if(!p1) p1 = rand; else p2 = rand;
+    }
+
+    if(p1 === p2){
+      showError(lifeSetupError, 'Les deux joueurs doivent être différents.');
+      return;
+    }
+    life.names = [p1, p2];
+    life.totals = [life.startTotal, life.startTotal];
+    life.poison = [0, 0];
+    life.history = [];
+    life.started = true;
+    syncLifeUiFromState();
+    persistState();
+  });
+
+  lifeResetBtn.addEventListener('click', () => {
+    life.started = false;
+    life.names = [null, null];
+    life.totals = [null, null];
+    life.poison = [0, 0];
+    life.history = [];
+    syncLifeUiFromState();
+    persistState();
+  });
+
+  // ---------- Plein écran (vue partagée : joueur 2 en haut à l'envers, joueur 1 en bas) ----------
+  function enterLifeFullscreen(){
+    lifeFullscreenOverlay.hidden = false;
+    updateLifeBlockDom(1);
+    updateLifeBlockDom(2);
+    updateRoundTimerDisplays();
+    // La CSS de l'overlay couvre déjà tout l'écran ; la Fullscreen API est un bonus
+    // (elle peut être refusée, ex. dans un iframe sans permission "fullscreen").
+    const requestFs = lifeFullscreenOverlay.requestFullscreen || lifeFullscreenOverlay.webkitRequestFullscreen;
+    if(requestFs){
+      try{
+        const result = requestFs.call(lifeFullscreenOverlay);
+        if(result && result.catch) result.catch(() => {});
+      } catch(e){ /* ignoré : l'overlay reste affiché en CSS plein écran */ }
+    }
+  }
+
+  function exitLifeFullscreen(){
+    if(document.fullscreenElement && document.exitFullscreen){
+      document.exitFullscreen().catch(() => {});
+    }
+    lifeFullscreenOverlay.hidden = true;
+  }
+
+  lifeFullscreenBtn.addEventListener('click', enterLifeFullscreen);
+  fsExitBtn.addEventListener('click', exitLifeFullscreen);
+  document.addEventListener('fullscreenchange', () => {
+    if(!document.fullscreenElement && !lifeFullscreenOverlay.hidden){
+      lifeFullscreenOverlay.hidden = true;
+    }
+  });
+
+  // ---------- Tournament: draft data hand-off ----------
+  function renderTournamentDraftSummary(){
+    const container = document.getElementById('tournament-draft-summary');
+    container.innerHTML = '';
+
+    if(state.players.length === 0){
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.textContent = "Aucune donnée pour l'instant. Rendez-vous sur la page Draft pour ajouter des joueurs et lancer un tirage.";
+      container.appendChild(empty);
+      return;
+    }
+
+    const table = document.createElement('table');
+    table.className = 'data-table summary-table';
+
+    const thead = document.createElement('thead');
+    thead.innerHTML = '<tr><th>Joueur</th><th>Boosters</th><th>Table</th></tr>';
+
+    const tbody = document.createElement('tbody');
+    state.players.forEach(name => {
+      const boosters = (state.draft && state.draft.assignment[name]) ? state.draft.assignment[name].join(', ') : '—';
+      const info = (state.tables && state.tables.assignment[name])
+        ? state.tables.assignment[name].table + ' (' + state.tables.assignment[name].position + '/' + state.tables.assignment[name].size + ')'
+        : '—';
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + escapeHtml(name) + '</td><td>' + escapeHtml(boosters) + '</td><td>' + escapeHtml(info) + '</td>';
+      tbody.appendChild(tr);
+    });
+
+    table.appendChild(thead);
+    table.appendChild(tbody);
+    container.appendChild(table);
+  }
+
+  // ---------- Tournament: BO3 match tracking ----------
+  const matchDurationInput = document.getElementById('match-duration');
+  const maxRoundsInput = document.getElementById('max-rounds');
+  const startTournamentBtn = document.getElementById('start-tournament-btn');
+  const tournamentSetupError = document.getElementById('tournament-setup-error');
+  const playersPanel = document.getElementById('tournament-players-panel');
+  const activePlayersChipList = document.getElementById('active-players-chip-list');
+  const droppedPlayersList = document.getElementById('dropped-players-list');
+  const roundTimerPanel = document.getElementById('round-timer-panel');
+  const roundsContainer = document.getElementById('rounds-container');
+  const tournamentActions = document.getElementById('tournament-actions');
+  const resetTournamentBtn = document.getElementById('reset-tournament-btn');
+  const standingsCard = document.getElementById('standings-card');
+  const standingsContainer = document.getElementById('standings-container');
+
+  function computeMatchPoints(score1, score2){
+    const key = score1 + '-' + score2;
+    if(['2-0','2-1'].includes(key)) return [3, 0];
+    if(['0-2','1-2'].includes(key)) return [0, 3];
+    if(['1-1','0-0'].includes(key)) return [1, 1];
+    return null;
+  }
+
+  function createMatch(p1, p2){
+    return { id: nextMatchId(), isBye: false, player1: p1, player2: p2, score1: null, score2: null, points1: null, points2: null, status: 'pending' };
+  }
+  function createByeMatch(p){
+    return { id: nextMatchId(), isBye: true, player1: p, player2: null, score1: 2, score2: 0, points1: 3, points2: 0, status: 'completed' };
+  }
+
+  // ---------- Départages officiels (MTR Appendix C / MTGO) ----------
+  // Rappel des règles appliquées :
+  //  · Points de match : 3 victoire, 1 nul, 0 défaite. Un bye vaut 3 points (et 2-0 en manches).
+  //  · MW% (match-win %) = points de match / (3 × rounds joués), PLANCHER 0.33333.
+  //    Les byes sont EXCLUS du MW% (ex. officiel : 3-5 dont 1 bye → 6/21, pas 6/24).
+  //  · OMW% = moyenne des MW% des adversaires ; les byes ne comptent pas comme adversaire.
+  //  · GW% (game-win %) = points de manche / (3 × manches jouées), SANS plancher.
+  //    Un bye compte comme 2-0, soit 6 points de manche sur 6.
+  //  · OGW% = moyenne des GW% des adversaires, avec plancher 0.33333 par adversaire.
+  const TB_FLOOR = 1/3;
+
+  function computeStandings(){
+    const map = {};
+    state.players.forEach(name => {
+      map[name] = {
+        name, points: 0, matchesPlayed: 0, wins: 0, draws: 0, losses: 0,
+        gamesWon: 0, gamesLost: 0, byeCount: 0,
+        // Compteurs de départage
+        mpNoBye: 0,        // points de match hors byes (pour le MW%)
+        roundsNoBye: 0,    // rounds joués hors byes (pour le MW%)
+        gamePoints: 0,     // points de manche (3 par manche gagnée, 1 par manche nulle)
+        gamesPlayed: 0,    // manches jouées (byes inclus : 2)
+        opponents: []      // adversaires réels rencontrés (byes exclus)
+      };
+    });
+
+    tournament.rounds.forEach(round => {
+      round.matches.forEach(m => {
+        if(m.status !== 'completed') return;
+
+        if(m.isBye){
+          const p = map[m.player1];
+          if(!p) return;
+          // Classement : le bye vaut une victoire à 3 points.
+          p.points += 3; p.wins += 1; p.matchesPlayed += 1;
+          p.gamesWon += 2;
+          // Départages : le bye compte 2-0 en manches, mais est exclu du MW%
+          // et n'ajoute aucun adversaire.
+          p.gamePoints += 6; p.gamesPlayed += 2;
+          p.byeCount += 1;
+          return;
+        }
+
+        const p1 = map[m.player1], p2 = map[m.player2];
+        if(!p1 || !p2) return;
+
+        p1.matchesPlayed++; p2.matchesPlayed++;
+        p1.gamesWon += m.score1; p1.gamesLost += m.score2;
+        p2.gamesWon += m.score2; p2.gamesLost += m.score1;
+        p1.points += m.points1; p2.points += m.points2;
+        if(m.points1 === 3) p1.wins++; else if(m.points1 === 1) p1.draws++; else p1.losses++;
+        if(m.points2 === 3) p2.wins++; else if(m.points2 === 1) p2.draws++; else p2.losses++;
+
+        // Départages
+        p1.mpNoBye += m.points1; p1.roundsNoBye++;
+        p2.mpNoBye += m.points2; p2.roundsNoBye++;
+        const gp = m.score1 + m.score2;             // manches réellement jouées
+        p1.gamePoints += m.score1 * 3; p1.gamesPlayed += gp;
+        p2.gamePoints += m.score2 * 3; p2.gamesPlayed += gp;
+        p1.opponents.push(m.player2);
+        p2.opponents.push(m.player1);
+      });
+    });
+
+    const all = Object.values(map);
+
+    // MW% et GW% individuels
+    all.forEach(p => {
+      p.mw = p.roundsNoBye > 0
+        ? Math.max(TB_FLOOR, p.mpNoBye / (3 * p.roundsNoBye))
+        : TB_FLOOR;                                  // que des byes (ou aucun match) → plancher
+      p.gw = p.gamesPlayed > 0 ? (p.gamePoints / (3 * p.gamesPlayed)) : 0;  // pas de plancher
+    });
+
+    // OMW% et OGW% : moyennes sur les adversaires réels, avec plancher par adversaire
+    all.forEach(p => {
+      const opps = p.opponents.map(n => map[n]).filter(Boolean);
+      if(opps.length === 0){
+        // Aucun adversaire réel (ex. uniquement des byes) : on applique le plancher plutôt
+        // que 0, pour ne pas pénaliser artificiellement un joueur qui a reçu un bye.
+        p.omw = TB_FLOOR; p.ogw = TB_FLOOR;
+        return;
+      }
+      p.omw = opps.reduce((s, o) => s + Math.max(TB_FLOOR, o.mw), 0) / opps.length;
+      p.ogw = opps.reduce((s, o) => s + Math.max(TB_FLOOR, o.gw), 0) / opps.length;
+    });
+
+    // Affrontement direct : renvoie -1 si a doit passer devant b, 1 si b devant a, 0 sinon.
+    function headToHead(a, b){
+      let res = 0;
+      tournament.rounds.forEach(round => round.matches.forEach(m => {
+        if(m.status !== 'completed' || m.isBye) return;
+        const isPair = (m.player1 === a.name && m.player2 === b.name) ||
+                       (m.player1 === b.name && m.player2 === a.name);
+        if(!isPair) return;
+        const aPts = (m.player1 === a.name) ? m.points1 : m.points2;
+        const bPts = (m.player1 === b.name) ? m.points1 : m.points2;
+        if(aPts > bPts) res = -1;
+        else if(bPts > aPts) res = 1;
+      }));
+      return res;
+    }
+
+    // Tri strict : MP → OMW% → GW% → OGW% → affrontement direct → nom (stabilité).
+    all.sort((a, b) =>
+      b.points - a.points ||
+      b.omw - a.omw ||
+      b.gw - a.gw ||
+      b.ogw - a.ogw ||
+      headToHead(a, b) ||
+      a.name.localeCompare(b.name)
+    );
+    return all;
+  }
+
+  function formatPct(v){ return (v * 100).toFixed(1) + '%'; }
+
+  function getPlayedPairsSet(){
+    const set = new Set();
+    tournament.rounds.forEach(round => {
+      round.matches.forEach(m => {
+        if(!m.isBye && m.player1 && m.player2){
+          set.add([m.player1, m.player2].sort().join('|'));
+        }
+      });
+    });
+    return set;
+  }
+
+  function generatePairings(){
+    const standings = computeStandings();
+    let order = standings.filter(s => !tournament.droppedPlayers.has(s.name)).map(s => s.name);
+    if(tournament.rounds.length === 0){
+      order = shuffle(order);
+    }
+
+    let byePlayer = null;
+    if(order.length % 2 === 1){
+      // Règle du bye :
+      //  1. Un joueur doit avoir le moins de byes possible → on ne considère d'abord que
+      //     les joueurs ayant le nombre de byes minimal parmi les joueurs actifs.
+      //     (Concrètement : personne ne prend un 2e bye tant qu'il reste quelqu'un à 0.)
+      //  2. Parmi ces candidats, on favorise celui qui a le moins de points de match.
+      //  3. À égalité de points, on départage aléatoirement pour ne pas toujours léser le même.
+      const recs = order.map(name => standings.find(s => s.name === name)).filter(Boolean);
+      const minByeCount = Math.min(...recs.map(r => r.byeCount));
+      const eligible = recs.filter(r => r.byeCount === minByeCount);
+      const minPoints = Math.min(...eligible.map(r => r.points));
+      const lowestPoints = eligible.filter(r => r.points === minPoints);
+      byePlayer = shuffle(lowestPoints.map(r => r.name))[0];
+      order = order.filter(n => n !== byePlayer);
+    }
+
+    const played = getPlayedPairsSet();
+    const used = new Set();
+    const matches = [];
+
+    for(let i = 0; i < order.length; i++){
+      const p1 = order[i];
+      if(used.has(p1)) continue;
+      let opponent = null;
+      for(let j = i + 1; j < order.length; j++){
+        const p2 = order[j];
+        if(used.has(p2)) continue;
+        const key = [p1, p2].sort().join('|');
+        if(!played.has(key)){ opponent = p2; break; }
+      }
+      if(!opponent){
+        for(let j = i + 1; j < order.length; j++){
+          const p2 = order[j];
+          if(!used.has(p2)){ opponent = p2; break; }
+        }
+      }
+      if(opponent){
+        used.add(p1); used.add(opponent);
+        matches.push(createMatch(p1, opponent));
+      }
+    }
+
+    if(byePlayer) matches.push(createByeMatch(byePlayer));
+    return matches;
+  }
+
+  function formatTime(totalSeconds){
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
+    return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+  }
+
+  // ---------- Son de fin de chrono (bip généré, aucun fichier externe requis) ----------
+  let audioCtx = null;
+  function ensureAudioContext(){
+    if(audioCtx) return audioCtx;
+    try{
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if(AudioCtx) audioCtx = new AudioCtx();
+    } catch(e){ audioCtx = null; }
+    return audioCtx;
+  }
+  function playTimerEndSound(){
+    const ctx = ensureAudioContext();
+    if(!ctx) return;
+    try{
+      if(ctx.state === 'suspended') ctx.resume();
+      const now = ctx.currentTime;
+      [0, 0.28, 0.56].forEach(offset => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = 880;
+        gain.gain.setValueAtTime(0.0001, now + offset);
+        gain.gain.exponentialRampToValueAtTime(0.35, now + offset + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.22);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + offset);
+        osc.stop(now + offset + 0.24);
+      });
+    } catch(e){ /* audio indisponible : on ignore silencieusement */ }
+  }
+
+  // ---------- Chrono global du round (un seul chrono, partagé entre l'onglet Tournoi et Points de vie) ----------
+  // Basé sur un timestamp de fin (endTime) plutôt qu'un compteur décrémenté : cela évite toute
+  // dérive quand l'onglet est en arrière-plan (setInterval throttlé) et permet de restaurer le
+  // chrono exact après un rafraîchissement de page. remaining/expired sont calculés à la volée.
+  const roundTimer = { endTime: null, intervalId: null, soundPlayed: false };
+
+  function roundTimerRemaining(){
+    if(roundTimer.endTime == null) return null;
+    return Math.max(0, Math.round((roundTimer.endTime - Date.now()) / 1000));
+  }
+
+  function updateRoundTimerDisplays(){
+    const remaining = roundTimerRemaining();
+    const running = !!roundTimer.intervalId;
+
+    document.querySelectorAll('.round-timer-display').forEach(el => {
+      if(remaining == null){ el.hidden = true; return; }
+      el.hidden = false;
+      if(remaining <= 0){
+        el.textContent = 'Temps écoulé';
+        el.classList.add('expired');
+      } else {
+        el.textContent = formatTime(remaining);
+        el.classList.remove('expired');
+      }
+    });
+    document.querySelectorAll('.round-timer-label').forEach(el => {
+      el.hidden = (remaining == null);
+    });
+
+    const btn = document.getElementById('round-timer-btn');
+    const resetBtn = document.getElementById('round-timer-reset-btn');
+    if(btn){
+      if(running){
+        btn.textContent = 'Chrono en cours';
+        btn.disabled = true;
+      } else if(remaining === 0){
+        btn.textContent = 'Relancer le chrono du round';
+        btn.disabled = false;
+      } else {
+        const dur = parseInt(matchDurationInput.value, 10) || 50;
+        btn.textContent = 'Lancer le chrono du round (' + dur + ' min)';
+        btn.disabled = false;
+      }
+    }
+    if(resetBtn) resetBtn.hidden = (remaining == null);
+  }
+
+  function tickRoundTimer(){
+    const remaining = roundTimerRemaining();
+    if(remaining === 0){
+      // Fin atteinte : on arrête l'intervalle, on joue le son une seule fois.
+      clearInterval(roundTimer.intervalId);
+      roundTimer.intervalId = null;
+      updateRoundTimerDisplays();
+      if(!roundTimer.soundPlayed){
+        roundTimer.soundPlayed = true;
+        playTimerEndSound();
+      }
+      persistState();
+    } else {
+      updateRoundTimerDisplays();
+    }
+  }
+
+  function startRoundTimer(){
+    if(roundTimer.intervalId) return;
+    ensureAudioContext(); // amorcé sur un geste utilisateur (nécessaire pour l'audio dans certains navigateurs)
+    const dur = parseInt(matchDurationInput.value, 10);
+    const durationSeconds = (Number.isInteger(dur) && dur > 0) ? dur * 60 : 50 * 60;
+    roundTimer.endTime = Date.now() + durationSeconds * 1000;
+    roundTimer.soundPlayed = false;
+    updateRoundTimerDisplays();
+    roundTimer.intervalId = setInterval(tickRoundTimer, 250);
+    persistState();
+  }
+
+  function resetRoundTimer(){
+    if(roundTimer.intervalId) clearInterval(roundTimer.intervalId);
+    roundTimer.intervalId = null;
+    roundTimer.endTime = null;
+    roundTimer.soundPlayed = false;
+    updateRoundTimerDisplays();
+    persistState();
+  }
+
+  // Restaure un chrono en cours après un rafraîchissement (endTime persisté).
+  function resumeRoundTimerIfNeeded(){
+    if(roundTimer.endTime == null) return;
+    const remaining = roundTimerRemaining();
+    if(remaining > 0){
+      if(!roundTimer.intervalId) roundTimer.intervalId = setInterval(tickRoundTimer, 250);
+    } else {
+      // Déjà expiré au moment du rechargement : on ne rejoue pas le son.
+      roundTimer.soundPlayed = true;
+    }
+    updateRoundTimerDisplays();
+  }
+
+  document.getElementById('round-timer-btn').addEventListener('click', startRoundTimer);
+  document.getElementById('round-timer-reset-btn').addEventListener('click', resetRoundTimer);
+
+  function renderMatchRow(match){
+    if(match.isBye){
+      const row = document.createElement('div');
+      row.className = 'match-row bye-row';
+      row.innerHTML = '<strong>' + escapeHtml(match.player1) + '</strong> — exempt ce round (bye) → <span class="match-result">+3 pts</span>';
+      return row;
+    }
+
+    const row = document.createElement('div');
+    row.className = 'match-row' + (match.status === 'completed' ? ' completed' : '');
+
+    const title = document.createElement('div');
+    title.className = 'match-title';
+
+    if(match.status === 'completed'){
+      title.innerHTML = '<span><strong>' + escapeHtml(match.player1) + '</strong><span class="vs">vs</span><strong>' + escapeHtml(match.player2) + '</strong></span>' +
+        '<span class="match-result">' + match.score1 + ' - ' + match.score2 + '  →  +' + match.points1 + ' / +' + match.points2 + ' pts</span>';
+      row.appendChild(title);
+      return row;
+    }
+
+    title.innerHTML = '<span><strong>' + escapeHtml(match.player1) + '</strong><span class="vs">vs</span><strong>' + escapeHtml(match.player2) + '</strong></span>';
+    row.appendChild(title);
+
+    const picker = document.createElement('div');
+    picker.className = 'score-picker';
+    let selected = null;
+
+    const validateBtn = document.createElement('button');
+    validateBtn.className = 'primary';
+    validateBtn.type = 'button';
+    validateBtn.textContent = 'Valider le score';
+    validateBtn.disabled = true;
+
+    ['2-0','2-1','1-1','0-0','1-2','0-2'].forEach(code => {
+      const btn = document.createElement('button');
+      btn.className = 'score-btn';
+      btn.type = 'button';
+      btn.textContent = code.replace('-', ' - ');
+      btn.addEventListener('click', () => {
+        selected = code;
+        picker.querySelectorAll('.score-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        validateBtn.disabled = false;
+      });
+      picker.appendChild(btn);
+    });
+    row.appendChild(picker);
+
+    validateBtn.addEventListener('click', () => {
+      if(!selected) return;
+      const [s1, s2] = selected.split('-').map(Number);
+      const pts = computeMatchPoints(s1, s2);
+      if(!pts) return;
+      match.score1 = s1;
+      match.score2 = s2;
+      match.points1 = pts[0];
+      match.points2 = pts[1];
+      match.status = 'completed';
+      renderTournamentPage();
+    });
+    row.appendChild(validateBtn);
+
+    return row;
+  }
+
+  // Génère effectivement le round suivant à partir des appariements.
+  function advanceToNextRound(currentRoundNumber){
+    const matches = generatePairings();
+    tournament.rounds.push({ number: currentRoundNumber + 1, matches });
+    resetRoundTimer();   // nouveau round → le chrono repart de zéro automatiquement
+    renderTournamentPage();
+  }
+
+  // I-3 : avant de générer le round suivant, demander si un ou plusieurs joueurs ont abandonné.
+  // On présente la liste des joueurs actifs avec des cases à cocher ; ceux cochés sont marqués
+  // « drop » et exclus des appariements du round à venir.
+  function promptDropBeforeNextRound(currentRoundNumber){
+    const active = state.players.filter(p => !tournament.droppedPlayers.has(p));
+
+    modalTitle.textContent = 'Avant le round suivant';
+    modalMessage.textContent = 'Un joueur a-t-il abandonné ? Cochez les joueurs à retirer du tournoi, puis générez le round suivant.';
+    modalActions.innerHTML = '';
+
+    // Liste de cases à cocher insérée entre le message et les boutons.
+    const list = document.createElement('div');
+    list.className = 'modal-dynamic';
+    list.style.display = 'flex';
+    list.style.flexDirection = 'column';
+    list.style.gap = '8px';
+    list.style.margin = '0 0 16px';
+    list.style.textAlign = 'left';
+
+    active.forEach(name => {
+      const label = document.createElement('label');
+      label.style.display = 'flex';
+      label.style.alignItems = 'center';
+      label.style.gap = '8px';
+      label.style.fontSize = '0.9rem';
+      label.style.cursor = 'pointer';
+
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.value = name;
+      cb.className = 'drop-checkbox';
+
+      const span = document.createElement('span');
+      span.textContent = name;
+
+      label.appendChild(cb);
+      label.appendChild(span);
+      list.appendChild(label);
+    });
+
+    // On insère la liste juste avant la zone des boutons.
+    modalActions.parentNode.insertBefore(list, modalActions);
+
+    const cleanup = () => { if(list.parentNode) list.parentNode.removeChild(list); };
+
+    const confirmBtn = document.createElement('button');
+    confirmBtn.type = 'button';
+    confirmBtn.className = 'primary';
+    confirmBtn.textContent = 'Générer le round suivant';
+    confirmBtn.addEventListener('click', () => {
+      list.querySelectorAll('.drop-checkbox:checked').forEach(cb => {
+        tournament.droppedPlayers.add(cb.value);
+      });
+      cleanup();
+      closeModal();
+      // S'il ne reste plus assez de joueurs actifs, on ne génère pas et on rafraîchit l'affichage.
+      const remaining = state.players.filter(p => !tournament.droppedPlayers.has(p)).length;
+      if(remaining < 2){
+        renderTournamentPage();
+      } else {
+        advanceToNextRound(currentRoundNumber);
+      }
+    });
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'secondary';
+    cancelBtn.textContent = 'Annuler';
+    cancelBtn.addEventListener('click', () => { cleanup(); closeModal(); });
+
+    modalActions.appendChild(confirmBtn);
+    modalActions.appendChild(cancelBtn);
+    modalOverlay.hidden = false;
+  }
+
+  function renderRounds(){
+    roundsContainer.innerHTML = '';
+
+    const maxRoundsRaw = parseInt(maxRoundsInput.value, 10);
+    const hasLimit = Number.isInteger(maxRoundsRaw) && maxRoundsRaw > 0;
+    const limitReached = hasLimit && tournament.rounds.length >= maxRoundsRaw;
+    const activeCount = state.players.filter(p => !tournament.droppedPlayers.has(p)).length;
+
+    tournament.rounds.forEach((round, ridx) => {
+      const block = document.createElement('div');
+      block.className = 'round-block';
+
+      const completedCount = round.matches.filter(m => m.status === 'completed').length;
+      const total = round.matches.length;
+
+      const header = document.createElement('h3');
+      header.innerHTML = '<span>Round ' + round.number + '</span><span class="round-progress">' + completedCount + '/' + total + ' matchs validés</span>';
+      block.appendChild(header);
+
+      round.matches.forEach(match => block.appendChild(renderMatchRow(match)));
+      roundsContainer.appendChild(block);
+
+      if(ridx === tournament.rounds.length - 1 && completedCount === total){
+        if(limitReached){
+          const msg = document.createElement('div');
+          msg.className = 'alert info';
+          msg.textContent = 'Nombre maximum de rounds atteint (' + maxRoundsRaw + '). Tournoi terminé.';
+          roundsContainer.appendChild(msg);
+        } else if(activeCount < 2){
+          const msg = document.createElement('div');
+          msg.className = 'alert info';
+          msg.textContent = "Pas assez de joueurs actifs pour continuer le tournoi.";
+          roundsContainer.appendChild(msg);
+        } else {
+          const nextBtn = document.createElement('button');
+          nextBtn.className = 'primary';
+          nextBtn.type = 'button';
+          nextBtn.textContent = 'Générer le round suivant';
+          nextBtn.style.marginBottom = '20px';
+          nextBtn.addEventListener('click', () => {
+            promptDropBeforeNextRound(round.number);
+          });
+          roundsContainer.appendChild(nextBtn);
+        }
+      }
+    });
+
+    // M-4 : note sur la limite de l'appariement (glouton, système « suisse » simplifié).
+    if(tournament.rounds.length > 0){
+      const note = document.createElement('p');
+      note.className = 'hint';
+      note.style.marginTop = '4px';
+      note.textContent = "Appariement suisse simplifié : les joueurs sont regroupés par score en évitant les revanches déjà jouées. Sur de petits effectifs, une revanche peut rester inévitable.";
+      roundsContainer.appendChild(note);
+    }
+
+    startTournamentBtn.hidden = tournament.rounds.length > 0;
+    tournamentActions.hidden = tournament.rounds.length === 0;
+    standingsCard.hidden = tournament.rounds.length === 0;
+    playersPanel.hidden = tournament.rounds.length === 0;
+    roundTimerPanel.hidden = tournament.rounds.length === 0;
+    if(tournament.rounds.length > 0){
+      renderPlayersPanel();
+      renderStandings();
+    }
+    persistState();
+  }
+
+  function renderPlayersPanel(){
+    activePlayersChipList.innerHTML = '';
+    state.players.filter(p => !tournament.droppedPlayers.has(p)).forEach(name => {
+      const chip = document.createElement('div');
+      chip.className = 'chip';
+      const span = document.createElement('span');
+      span.textContent = name;
+      const dropBtn = document.createElement('button');
+      dropBtn.className = 'icon-btn';
+      dropBtn.type = 'button';
+      dropBtn.setAttribute('aria-label', 'Retirer ' + name + ' (abandon)');
+      dropBtn.textContent = '×';
+      dropBtn.addEventListener('click', () => {
+        tournament.droppedPlayers.add(name);
+        renderRounds();
+      });
+      chip.appendChild(span);
+      chip.appendChild(dropBtn);
+      activePlayersChipList.appendChild(chip);
+    });
+
+    droppedPlayersList.innerHTML = '';
+    tournament.droppedPlayers.forEach(name => {
+      const row = document.createElement('div');
+      row.className = 'dropped-row';
+      const span = document.createElement('span');
+      span.textContent = name + ' — abandon';
+      const restoreBtn = document.createElement('button');
+      restoreBtn.className = 'icon-btn restore-btn';
+      restoreBtn.type = 'button';
+      restoreBtn.textContent = '↺';
+      restoreBtn.setAttribute('aria-label', 'Réintégrer ' + name);
+      restoreBtn.addEventListener('click', () => {
+        tournament.droppedPlayers.delete(name);
+        renderRounds();
+      });
+      row.appendChild(span);
+      row.appendChild(restoreBtn);
+      droppedPlayersList.appendChild(row);
+    });
+  }
+
+  function renderStandings(){
+    const standings = computeStandings();
+    const table = document.createElement('table');
+    table.className = 'data-table standings-table';
+    table.innerHTML = '<thead><tr>' +
+      '<th>#</th><th>Joueur</th><th>Pts</th>' +
+      '<th title="Opponent Match-Win % — 1er départage">OMW%</th>' +
+      '<th title="Game-Win % du joueur — 2e départage">GW%</th>' +
+      '<th title="Opponent Game-Win % — 3e départage">OGW%</th>' +
+      '<th title="Victoires / Nuls / Défaites">V-N-D</th>' +
+      '<th title="Manches gagnées / perdues">Manches</th>' +
+      '</tr></thead>';
+    const tbody = document.createElement('tbody');
+    standings.forEach((s, i) => {
+      const tr = document.createElement('tr');
+      const dropTag = tournament.droppedPlayers.has(s.name) ? ' <span style="color:var(--text-muted);font-weight:400;">(abandon)</span>' : '';
+      tr.innerHTML =
+        '<td>' + (i + 1) + '</td>' +
+        '<td>' + escapeHtml(s.name) + dropTag + '</td>' +
+        '<td class="points">' + s.points + '</td>' +
+        '<td class="tiebreak">' + formatPct(s.omw) + '</td>' +
+        '<td class="tiebreak">' + formatPct(s.gw) + '</td>' +
+        '<td class="tiebreak">' + formatPct(s.ogw) + '</td>' +
+        '<td class="tiebreak">' + s.wins + '-' + s.draws + '-' + s.losses + '</td>' +
+        '<td class="tiebreak">' + s.gamesWon + '/' + s.gamesLost + '</td>';
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+
+    // Conteneur scrollable horizontalement (beaucoup de colonnes sur mobile).
+    const scroll = document.createElement('div');
+    scroll.className = 'standings-scroll';
+    scroll.appendChild(table);
+
+    const legend = document.createElement('p');
+    legend.className = 'hint';
+    legend.style.margin = '10px 0 0';
+    legend.textContent = "Départages officiels appliqués dans l'ordre : points de match, puis OMW% (moyenne du taux de victoire des adversaires), GW% (taux de manches gagnées), OGW% (taux de manches gagnées des adversaires), puis affrontement direct. Les byes ne comptent pas comme adversaire et un plancher de 33,3 % s'applique aux moyennes.";
+
+    standingsContainer.innerHTML = '';
+    standingsContainer.appendChild(scroll);
+    standingsContainer.appendChild(legend);
+  }
+
+  function renderTournamentPage(){
+    renderTournamentDraftSummary();
+    renderRounds();
+  }
+
+  startTournamentBtn.addEventListener('click', () => {
+    hideError(tournamentSetupError);
+    if(state.players.length < 2){
+      showError(tournamentSetupError, 'Il faut au moins 2 joueurs (ajoutez-les depuis la page Draft).');
+      return;
+    }
+    const dur = parseInt(matchDurationInput.value, 10);
+    if(!Number.isInteger(dur) || dur < 1){
+      showError(tournamentSetupError, 'La durée des matchs doit être un entier positif (en minutes).');
+      return;
+    }
+    const maxRoundsRaw = maxRoundsInput.value.trim();
+    if(maxRoundsRaw !== ''){
+      const mr = parseInt(maxRoundsRaw, 10);
+      if(!Number.isInteger(mr) || mr < 1){
+        showError(tournamentSetupError, 'Le nombre de rounds maximum doit être un entier positif (ou vide pour illimité).');
+        return;
+      }
+    }
+    tournament.rounds = [{ number: 1, matches: generatePairings() }];
+    resetRoundTimer();   // nouveau tournoi → chrono remis à zéro
+    renderTournamentPage();
+  });
+
+  resetTournamentBtn.addEventListener('click', () => {
+    resetRoundTimer();
+    tournament.rounds = [];
+    tournament.droppedPlayers.clear();
+    renderTournamentPage();
+  });
+
+  restoreStateIfAvailable();
+  buildColorThemeMenu();
+  applyTheme();          // applique clair/sombre + thème de couleur restaurés
+  renderPlayers();
+  if(state.draft) renderBoosterResults();
+  if(state.tables) renderTableResults();
+  renderLifePlayerSelects();
+  syncLifeUiFromState();
+  // Si un tournoi était en cours, on rend sa page dès l'init (cohérence avec la page Vie),
+  // et on reprend le chrono du round s'il tournait encore (endTime persisté).
+  if(tournament.rounds.length > 0) renderTournamentPage();
+  resumeRoundTimerIfNeeded();
+})();
+
+/* ===================== Calculateur de base de mana =====================
+   Module autonome (IIFE) : ses variables restent privées et n'interfèrent
+   pas avec l'application. Il ne pose aucun écouteur global. */
+(function(){
+  "use strict";
+
+  /* =========================================================
+     ALGORITHME MÉTIER
+     Base : la fonction calculerBaseDeMana fournie initialement
+     (taille de deck -> total de terrains, ajustement CMC moyen,
+     réduction cantrips/ramp, répartition proportionnelle des
+     basiques par poids colorés) reste inchangée dans sa logique.
+
+     Extensions ajoutées dans cette itération (voir commentaires
+     "NOUVEAU") :
+       - poids des symboles triples (en plus des simples/doubles)
+       - poids des coûts bicolores stricts
+       - détail des terrains ET des rocks non-basiques par nombre
+         de couleurs produites (incolore / 1 / 2 / 3 / toutes),
+         dont la somme remplace l'ancien total saisi à la main
+       - un récapitulatif des sources de couleur déjà apportées
+         par le non-basique du deck (informatif, n'entre pas
+         dans le calcul de répartition des basiques)
+
+     Pondérations retenues (cf. recherche menée avant codage) :
+       - pip simple            : poids 1
+       - pip double précoce    : poids 1.5   (déjà présent)
+       - pip triple            : poids 2     (la littérature —
+         calculs de Frank Karsten — montre qu'un besoin triple
+         demande sensiblement plus de sources qu'un double, sans
+         toutefois doubler l'exigence)
+       - coût bicolore strict   : +1 à CHACUNE des 2 couleurs
+         (les deux couleurs sont réellement exigées en même
+         temps ; les calculateurs usuels comptent simplement
+         chaque symbole dans son propre total de couleur, sans
+         double comptage ni bonus supplémentaire)
+
+     Le mana hybride a été retiré : dans cet outil il n'apportait
+     pas de signal réellement différenciant par rapport aux pips
+     simples déjà saisis.
+
+     Seules les combinaisons entre "vraies" couleurs (W/U/B/R/G)
+     sont proposées pour les coûts bicolores, les terrains et les
+     rocks/dorks bi/tricolores — et une proposition n'est visible
+     que si TOUTES ses couleurs sont sélectionnées (jamais de
+     couleur "en trop" absente du deck). L'incolore reste un cas
+     à part (son propre champ "incolore"), toujours visible, non
+     concerné par ce filtre.
+
+     NOUVEAU — crédit des rocks colorées : une rock compte pour
+     3/4 d'une source colorée (contre une source pleine pour un
+     terrain), car contrairement à un terrain elle peut être
+     détruite ou piochée tardivement (cf. guideline de Frank
+     Karsten reprise par les calculateurs communautaires). Ce
+     crédit réduit la part de basiques recommandée par couleur,
+     sans changer le nombre total de terrains recommandé (celui-ci
+     reste piloté uniquement par le CMC des rocks/ramp).
+  ========================================================= */
+
+  // NOUVEAU — la taille de deck n'est plus limitée aux 4 valeurs d'origine
+  // (40/50/60/100) : 80 est ajoutée, et une taille personnalisée est
+  // désormais possible. Pour ces tailles hors du tableau d'origine, on
+  // interpole/extrapole linéairement entre les points de référence fournis
+  // au départ, ce qui donne une estimation raisonnable et cohérente avec
+  // eux plutôt qu'un simple repli fixe à 24.
+  const LAND_BASE_EXACT = { 40: 17, 50: 21, 60: 24, 100: 37 };
+  const LAND_BASE_ANCHORS = [[40, 17], [50, 21], [60, 24], [100, 37]];
+  function baseLandsForSize(size){
+      size = Math.max(1, Math.round(size) || 1);
+      if (LAND_BASE_EXACT[size] !== undefined) return LAND_BASE_EXACT[size];
+      const pts = LAND_BASE_ANCHORS;
+      if (size <= pts[0][0]){
+          const [x0, y0] = pts[0], [x1, y1] = pts[1];
+          const slope = (y1 - y0) / (x1 - x0);
+          return Math.max(1, Math.round(y0 + slope * (size - x0)));
+      }
+      if (size >= pts[pts.length - 1][0]){
+          const [x0, y0] = pts[pts.length - 2], [x1, y1] = pts[pts.length - 1];
+          const slope = (y1 - y0) / (x1 - x0);
+          return Math.max(1, Math.round(y1 + slope * (size - x1)));
+      }
+      for (let i = 0; i < pts.length - 1; i++){
+          const [x0, y0] = pts[i], [x1, y1] = pts[i + 1];
+          if (size >= x0 && size <= x1){
+              const t = (size - x0) / (x1 - x0);
+              return Math.round(y0 + t * (y1 - y0));
+          }
+      }
+      return Math.round(size * 0.4);
+  }
+
+  function calculerBaseDeMana(deckData) {
+      let totalTerrainsRecommandes = baseLandsForSize(deckData.deck_size);
+      let totalCartesNonTerrain = 0;
+      let sommeCMC = 0;
+      for (const [cmcStr, count] of Object.entries(deckData.mana_curve)) {
+          // NOUVEAU — correction : "parseInt(cmcStr) || 8" faisait basculer un
+          // CMC 0 (falsy en JS) sur la valeur de repli 8, ce qui aurait faussé
+          // le CMC moyen dès qu'on ajoute des sorts à coût 0. On ne retombe
+          // sur 8 que si la clé n'est pas un nombre valide.
+          let parsedCmc = parseInt(cmcStr, 10);
+          let cmc = Number.isNaN(parsedCmc) ? 8 : parsedCmc;
+          totalCartesNonTerrain += count;
+          sommeCMC += (cmc * count);
+      }
+      const cmcMoyen = totalCartesNonTerrain > 0 ? (sommeCMC / totalCartesNonTerrain) : 0;
+      if (cmcMoyen < 2.2) totalTerrainsRecommandes -= 1;
+      if (cmcMoyen > 3.5) totalTerrainsRecommandes += 1;
+      totalTerrainsRecommandes -= Math.floor(deckData.cantrips_count / 4);
+
+      let reductionRamp = 0;
+      deckData.mana_acceleration.forEach(rock => {
+          if (rock.cmc <= 1) reductionRamp += (rock.count / 2);
+          if (rock.cmc === 2) reductionRamp += (rock.count / 2.5);
+      });
+      totalTerrainsRecommandes -= Math.floor(reductionRamp);
+
+      // Le total de terrains non-basiques est calculé à partir du détail
+      // par nombre de couleurs produites, au lieu d'être saisi comme un
+      // chiffre brut unique.
+      const sumValues = obj => Object.values(obj).reduce((a, b) => a + b, 0);
+      const landDetail = deckData.non_basic_lands_detail;
+      // NOUVEAU — les fetchlands occupent une place de terrain (elles
+      // réduisent donc le nombre de basiques à ajouter, comme n'importe
+      // quel autre terrain non-basique), mais elles ne produisent aucune
+      // couleur par elles-mêmes : au moment où elles se sacrifient, elles
+      // vont chercher un terrain avec un type de terrain basique précis,
+      // donc on ne peut pas leur attribuer une couleur à l'avance. On ne
+      // les ajoute donc volontairement à aucune catégorie colorée — elles
+      // gonflent uniquement le compteur global de terrains non-basiques.
+      const fetchLandsCount = deckData.fetch_lands_count || 0;
+      let terrainsNonBasiquesTotal = landDetail.colorless
+          + sumValues(landDetail.mono)
+          + sumValues(landDetail.dual)
+          + sumValues(landDetail.tri)
+          + landDetail.all
+          + fetchLandsCount;
+
+      let terrainsBasiquesA_Ajouter = Math.max(0, totalTerrainsRecommandes - terrainsNonBasiquesTotal);
+
+      // Sources de couleur déjà apportées par un détail incolore/mono/dual/tri/toutes
+      function sourcesParCouleur(detail) {
+          const out = {};
+          deckData.selected_colors.forEach(c => { out[c] = detail.mono[c] || 0; });
+          Object.entries(detail.dual).forEach(([key, count]) => {
+              if (!count) return;
+              key.split("-").forEach(c => { if (out[c] !== undefined) out[c] += count; });
+          });
+          Object.entries(detail.tri).forEach(([key, count]) => {
+              if (!count) return;
+              key.split("-").forEach(c => { if (out[c] !== undefined) out[c] += count; });
+          });
+          if (detail.all) {
+              deckData.selected_colors.forEach(c => { out[c] += detail.all; });
+          }
+          return out;
+      }
+
+      const rockDetail = deckData.rocks_color_detail;
+      const totalRocksColorSources = rockDetail.colorless
+          + sumValues(rockDetail.mono)
+          + sumValues(rockDetail.dual)
+          + sumValues(rockDetail.tri)
+          + rockDetail.all;
+
+      const sourcesRocksBrutes = sourcesParCouleur(rockDetail);
+      const RATIO_CREDIT_ROCK = 0.75; // une rock = 3/4 d'une source colorée (Karsten)
+      const creditRocks = {};
+      deckData.selected_colors.forEach(c => { creditRocks[c] = RATIO_CREDIT_ROCK * (sourcesRocksBrutes[c] || 0); });
+
+      const poidsCouleurs = {};
+      let poidsTotal = 0;
+
+      deckData.selected_colors.forEach(couleur => {
+          const pipsInfo = deckData.color_pips[couleur] || { total_pips: 0, early_double_pips: 0, early_triple_pips: 0 };
+          let poids = pipsInfo.total_pips
+                    + (1.5 * pipsInfo.early_double_pips)
+                    + (2 * pipsInfo.early_triple_pips);
+          poidsCouleurs[couleur] = poids;
+      });
+
+      // coûts bicolores stricts : les deux couleurs sont exigées (1 par couleur)
+      Object.entries(deckData.gold_pairs).forEach(([key, count]) => {
+          if (!count) return;
+          key.split("-").forEach(c => {
+              if (poidsCouleurs[c] !== undefined) poidsCouleurs[c] += 1 * count;
+          });
+      });
+
+      deckData.selected_colors.forEach(c => { poidsTotal += poidsCouleurs[c]; });
+
+      // Répartition des basiques : on part d'un pool virtuel (basiques à ajouter +
+      // crédit total des rocks), on distribue ce pool au prorata du poids de chaque
+      // couleur, puis on retire de chaque part le crédit déjà couvert par ses rocks.
+      // Si une couleur est déjà entièrement couverte par ses rocks, sa part est
+      // ramenée à 0 et son poids retiré, le pool étant redistribué aux couleurs
+      // restantes (boucle à point fixe).
+      let repartitionBasiques = {};
+      deckData.selected_colors.forEach(c => repartitionBasiques[c] = 0);
+
+      if (poidsTotal > 0 && terrainsBasiquesA_Ajouter > 0) {
+          let remaining = new Set(deckData.selected_colors);
+          let allocFloat = {};
+          deckData.selected_colors.forEach(c => allocFloat[c] = 0);
+
+          let stable = false;
+          while (!stable && remaining.size > 0) {
+              stable = true;
+              let poidsRestant = 0;
+              remaining.forEach(c => poidsRestant += poidsCouleurs[c]);
+              if (poidsRestant <= 0) break;
+              let creditRestant = 0;
+              remaining.forEach(c => creditRestant += creditRocks[c]);
+              let poolVirtuel = terrainsBasiquesA_Ajouter + creditRestant;
+
+              remaining.forEach(c => {
+                  let cible = (poidsCouleurs[c] / poidsRestant) * poolVirtuel;
+                  if (cible < creditRocks[c]) {
+                      remaining.delete(c);
+                      stable = false;
+                  }
+              });
+          }
+
+          let poidsRestant = 0;
+          remaining.forEach(c => poidsRestant += poidsCouleurs[c]);
+          let creditRestant = 0;
+          remaining.forEach(c => creditRestant += creditRocks[c]);
+          let poolVirtuel = terrainsBasiquesA_Ajouter + creditRestant;
+          remaining.forEach(c => {
+              let cible = poidsRestant > 0 ? (poidsCouleurs[c] / poidsRestant) * poolVirtuel : 0;
+              allocFloat[c] = Math.max(0, cible - creditRocks[c]);
+          });
+
+          // Arrondi par la méthode du plus grand reste, pour retomber exactement
+          // sur le nombre total de basiques à placer.
+          let terrainsRestants = terrainsBasiquesA_Ajouter;
+          let restesDecimales = [];
+          deckData.selected_colors.forEach(couleur => {
+              let partEntiere = Math.floor(allocFloat[couleur]);
+              repartitionBasiques[couleur] = partEntiere;
+              terrainsRestants -= partEntiere;
+              restesDecimales.push({ couleur: couleur, reste: allocFloat[couleur] - partEntiere });
+          });
+          restesDecimales.sort((a, b) => b.reste - a.reste);
+          for (let i = 0; i < terrainsRestants; i++) {
+              repartitionBasiques[restesDecimales[i % restesDecimales.length].couleur] += 1;
+          }
+      }
+
+      return {
+          statistiques: {
+              cmcMoyen: cmcMoyen.toFixed(2),
+              totalTerrainsRecommandes: totalTerrainsRecommandes,
+              terrainsNonBasiquesTotal: terrainsNonBasiquesTotal,
+              terrainsBasiquesCibles: terrainsBasiquesA_Ajouter
+          },
+          repartition: repartitionBasiques,
+          sourcesTerrains: sourcesParCouleur(landDetail),
+          sourcesRocks: sourcesRocksBrutes,
+          terrainsColorless: landDetail.colorless,
+          totalRocksColorSources: totalRocksColorSources,
+          fetchLandsCount: fetchLandsCount,
+          poidsCouleurs: poidsCouleurs
+      };
+  }
+
+  /* =========================================================
+     DONNÉES DE RÉFÉRENCE COULEURS + COMBINATOIRE
+  ========================================================= */
+  const COLOR_META = {
+    W: { name: "Blanc",    varName: "--w" },
+    U: { name: "Bleu",     varName: "--u" },
+    B: { name: "Noir",     varName: "--b" },
+    R: { name: "Rouge",    varName: "--r" },
+    G: { name: "Vert",     varName: "--g" },
+    C: { name: "Incolore", varName: "--c" }
+  };
+  const COLOR_ORDER = ["W","U","B","R","G","C"];
+  // NOUVEAU — l'incolore ne se combine jamais avec une couleur dans les paires/trios
+  // (mana bicolore, terrains et rocks bi/tricolores) : il reste un cas à part, avec
+  // son propre champ "incolore" dédié.
+  const REAL_COLORS = ["W","U","B","R","G"];
+
+  function combinations(arr, k){
+    const result = [];
+    function helper(start, combo){
+      if (combo.length === k){ result.push(combo.slice()); return; }
+      for (let i = start; i < arr.length; i++){
+        combo.push(arr[i]);
+        helper(i + 1, combo);
+        combo.pop();
+      }
+    }
+    helper(0, []);
+    return result;
+  }
+  const ALL_PAIRS = combinations(REAL_COLORS, 2);
+  const ALL_TRIOS = combinations(REAL_COLORS, 3);
+
+  /* =========================================================
+     IDENTITÉ COLORÉE DU DECK (nom d'archétype + détection de splash)
+     Les clés sont toujours construites en respectant l'ordre fixe
+     W,U,B,R,G (comme ALL_PAIRS/ALL_TRIOS), donc `sortByRealOrder`
+     suffit à retrouver la bonne clé quelle que soit la combinaison.
+  ========================================================= */
+  function sortByRealOrder(colors){
+    return REAL_COLORS.filter(c => colors.includes(c));
+  }
+
+  // Guildes de Ravnica (10 paires)
+  const GUILD_NAMES = {
+    WU: "Azorius", WB: "Orzhov", WR: "Boros", WG: "Selesnya",
+    UB: "Dimir", UR: "Izzet", UG: "Simic",
+    BR: "Rakdos", BG: "Golgari",
+    RG: "Gruul"
+  };
+  // Shards (Alara) et Wedges (Tarkir) — 10 trios
+  const TRIO_NAMES = {
+    WUB: "Esper", WUR: "Jeskai", WUG: "Bant",
+    WBR: "Mardu", WBG: "Abzan", WRG: "Naya",
+    UBR: "Grixis", UBG: "Sultai", URG: "Temur",
+    BRG: "Jund"
+  };
+  // Nephilim (Guildpact) — 5 combinaisons à 4 couleurs, largement reprises
+  // par la communauté (EDH notamment) pour nommer les identités à 4 couleurs
+  const FOUR_COLOR_NAMES = {
+    WUBR: "Yore-Tiller", WUBG: "Witch-Maw", WURG: "Ink-Treader",
+    WBRG: "Dune-Brood", UBRG: "Glint-Eye"
+  };
+
+  // Nom complet (sans notion de splash) pour un ensemble de 1 à 5 couleurs
+  function fullIdentityName(colors){
+    const sorted = sortByRealOrder(colors);
+    const key = sorted.join("");
+    if (sorted.length === 1) return "Mono " + COLOR_META[sorted[0]].name;
+    if (sorted.length === 2) return GUILD_NAMES[key] || key;
+    if (sorted.length === 3) return TRIO_NAMES[key] || key;
+    if (sorted.length === 4) return FOUR_COLOR_NAMES[key] || key;
+    if (sorted.length === 5) return "WUBRG";
+    return "";
+  }
+
+  function joinColorNames(colors){
+    const names = sortByRealOrder(colors).map(c => COLOR_META[c].name);
+    if (names.length === 1) return names[0];
+    if (names.length === 2) return names[0] + " et " + names[1];
+    return names.slice(0, -1).join(", ") + " et " + names[names.length - 1];
+  }
+
+  // NOUVEAU — détermine le nom d'archétype du deck (mono/guilde/shard-
+  // wedge/4 couleurs/WUBRG), avec détection de splash. Une couleur est
+  // considérée "splash" si son poids (mêmes pips pondérés que pour la
+  // répartition des basiques) est nettement en retrait par rapport à une
+  // répartition équilibrée entre les couleurs sélectionnées : on compare
+  // sa part réelle à la moitié de la part "équitable" (1/N), ce qui reste
+  // cohérent quel que soit le nombre de couleurs. Un second garde-fou
+  // absolu (calé sur la taille du deck) attrape aussi les couleurs qui ne
+  // représentent que de tout petits effectifs, même si leur part relative
+  // paraît suffisante (utile sur un deck avec très peu de pips saisis).
+  function computeDeckIdentity(selectedColors, weights, deckSize){
+    const realSelected = sortByRealOrder(Array.from(selectedColors).filter(c => REAL_COLORS.includes(c)));
+    if (realSelected.length === 0) return null;
+    if (realSelected.length === 1) return fullIdentityName(realSelected);
+
+    const poidsTotal = realSelected.reduce((s, c) => s + (weights[c] || 0), 0);
+
+    let mainColors, splashColors;
+    if (poidsTotal <= 0){
+      // Aucune donnée de pips saisie : impossible de juger un splash,
+      // on affiche simplement le nom complet de la combinaison.
+      mainColors = realSelected;
+      splashColors = [];
+    } else {
+      const n = realSelected.length;
+      const equalShare = 1 / n;
+      const relativeThreshold = equalShare / 2;
+      const absoluteCap = Math.max(2, Math.round(deckSize / 30));
+
+      mainColors = [];
+      splashColors = [];
+      realSelected.forEach(c => {
+        const w = weights[c] || 0;
+        const share = w / poidsTotal;
+        const isSplash = (share < relativeThreshold) || (w <= absoluteCap);
+        (isSplash ? splashColors : mainColors).push(c);
+      });
+
+      // Garde-fou : il doit toujours rester au moins une couleur "main" —
+      // si tout a été classé splash (cas limite), on repêche la couleur
+      // au poids le plus élevé.
+      if (mainColors.length === 0){
+        let best = realSelected[0];
+        realSelected.forEach(c => { if ((weights[c] || 0) > (weights[best] || 0)) best = c; });
+        mainColors = [best];
+        splashColors = realSelected.filter(c => c !== best);
+      }
+    }
+
+    if (splashColors.length === 0){
+      return fullIdentityName(mainColors);
+    }
+    // Avec un splash, la couleur (ou combinaison) principale se nomme sans
+    // le préfixe "Mono" (ex : "Blanc splash Noir", pas "Mono Blanc splash
+    // Noir") — "Mono" est réservé au cas sans aucun splash.
+    const mainLabel = mainColors.length === 1
+      ? COLOR_META[mainColors[0]].name
+      : fullIdentityName(mainColors);
+    return mainLabel + " splash " + joinColorNames(splashColors);
+  }
+
+  /* =========================================================
+     STEPPERS — factory générique
+  ========================================================= */
+  function createStepper(id, {min = 0, max = 999, value = 0, onChange} = {}){
+    const wrap = document.createElement("div");
+    wrap.className = "stepper";
+    wrap.dataset.id = id;
+    wrap.dataset.value = String(value);
+
+    const dec = document.createElement("button");
+    dec.type = "button";
+    dec.className = "stepper-btn";
+    dec.dataset.action = "dec";
+    dec.setAttribute("aria-label", "Diminuer");
+    dec.textContent = "−";
+
+    const val = document.createElement("span");
+    val.className = "stepper-value";
+    val.dataset.role = "value";
+    val.textContent = String(value);
+
+    const inc = document.createElement("button");
+    inc.type = "button";
+    inc.className = "stepper-btn";
+    inc.dataset.action = "inc";
+    inc.setAttribute("aria-label", "Augmenter");
+    inc.textContent = "+";
+
+    function update(delta){
+      let v = parseInt(wrap.dataset.value, 10) + delta;
+      v = Math.max(min, Math.min(max, v));
+      wrap.dataset.value = String(v);
+      val.textContent = String(v);
+      if (onChange) onChange(v);
+      recalcAll();
+    }
+
+    dec.addEventListener("click", () => update(-1));
+    inc.addEventListener("click", () => update(1));
+
+    wrap.appendChild(dec);
+    wrap.appendChild(val);
+    wrap.appendChild(inc);
+
+    wrap.getValue = () => parseInt(wrap.dataset.value, 10);
+    STEPPERS[id] = wrap;
+    return wrap;
+  }
+
+  const STEPPERS = {};
+  function stepperValue(id){
+    const el = STEPPERS[id];
+    return el ? el.getValue() : 0;
+  }
+
+  function makeRow(labelText, subText, stepperId, opts){
+    const row = document.createElement("div");
+    row.className = "stepper-row";
+    const labelWrap = document.createElement("div");
+    const lab = document.createElement("span");
+    lab.className = "stepper-row-label";
+    lab.textContent = labelText;
+    labelWrap.appendChild(lab);
+    if (subText){
+      const sub = document.createElement("span");
+      sub.className = "stepper-row-sub";
+      sub.textContent = subText;
+      labelWrap.appendChild(sub);
+    }
+    row.appendChild(labelWrap);
+    row.appendChild(createStepper(stepperId, opts || { min: 0, max: 99, value: 0 }));
+    return row;
+  }
+
+  function swatchBg(colors){
+    if (colors.length === 1){
+      return "var(" + COLOR_META[colors[0]].varName + ")";
+    }
+    return "linear-gradient(90deg, " + colors.map(c => "var(" + COLOR_META[c].varName + ")").join(", ") + ")";
+  }
+
+  function createComboRow(id, colors){
+    const row = document.createElement("div");
+    row.className = "stepper-row";
+    row.hidden = true;
+
+    const labelWrap = document.createElement("div");
+    labelWrap.className = "combo-row-label-wrap";
+    const swatch = document.createElement("span");
+    swatch.className = "split-swatch";
+    swatch.style.background = swatchBg(colors);
+    labelWrap.appendChild(swatch);
+    const lab = document.createElement("span");
+    lab.className = "stepper-row-label";
+    lab.textContent = colors.map(c => COLOR_META[c].name).join(" / ");
+    labelWrap.appendChild(lab);
+
+    row.appendChild(labelWrap);
+    row.appendChild(createStepper(id, { min: 0, max: 99, value: 0 }));
+    return row;
+  }
+
+  /* =========================================================
+     BUILD — Courbe de mana
+  ========================================================= */
+  const curveGrid = document.getElementById("curveGrid");
+  const CMC_LABELS = ["0","1","2","3","4","5","6","7","8+"];
+  CMC_LABELS.forEach((label, idx) => {
+    // NOUVEAU — idx 0 correspond au CMC 0 (sorts gratuits), important pour
+    // le CMC moyen : les ignorer biaiserait le calcul vers le haut.
+    let cmcKey;
+    if (idx === 0) cmcKey = "0";
+    else if (idx <= 7) cmcKey = String(idx);
+    else cmcKey = "8";
+    const cell = document.createElement("div");
+    cell.className = "curve-cell";
+
+    const lab = document.createElement("span");
+    lab.className = "curve-cell-label";
+    lab.textContent = "CMC " + label;
+    cell.appendChild(lab);
+
+    cell.appendChild(createStepper("cmc-" + cmcKey, { min: 0, max: 99, value: 0 }));
+    curveGrid.appendChild(cell);
+  });
+
+  /* =========================================================
+     BUILD — Rocks/Dorks / Ramp / Cantrips (partie CMC, inchangée)
+  ========================================================= */
+  const rampModifiersGrid = document.getElementById("rampModifiersGrid");
+  const RAMP_MODIFIERS = [
+    { id: "cantrips", label: "Cantrips",                          sub: "Sorts de pioche à 1 mana" },
+    { id: "ramp01",   label: "Rocks/Dorks — CMC 0 à 1",           sub: "Accélérateurs de mana très précoces (artefacts ou créatures)" },
+    { id: "ramp2",    label: "Rocks/Dorks — CMC 2",               sub: "Accélérateurs de mana à deux manas (artefacts ou créatures)" }
+  ];
+  RAMP_MODIFIERS.forEach(mod => {
+    rampModifiersGrid.appendChild(makeRow(mod.label, mod.sub, mod.id, { min: 0, max: 99, value: 0 }));
+  });
+
+  /* =========================================================
+     BUILD — Panneaux de pips par couleur (total / double / triple)
+  ========================================================= */
+  const pipsContainer = document.getElementById("pipsContainer");
+  const pipsEmpty = document.getElementById("pipsEmpty");
+  const PIPS_PANELS = {};
+
+  COLOR_ORDER.forEach(code => {
+    const panel = document.createElement("div");
+    panel.className = "pips-panel";
+    panel.dataset.colorPanel = code;
+    panel.hidden = true;
+
+    const title = document.createElement("div");
+    title.className = "pips-panel-title";
+    const swatch = document.createElement("span");
+    swatch.className = "pips-panel-swatch";
+    swatch.style.background = "var(" + COLOR_META[code].varName + ")";
+    title.appendChild(swatch);
+    const titleText = document.createElement("span");
+    titleText.textContent = COLOR_META[code].name;
+    title.appendChild(titleText);
+    panel.appendChild(title);
+
+    panel.appendChild(makeRow(
+      "Total de symboles " + COLOR_META[code].name.toLowerCase(),
+      null,
+      "pips-" + code + "-total"
+    ));
+    panel.appendChild(makeRow(
+      "Doubles symboles précoces",
+      "Coûts comme {" + code + "}{" + code + "} jouables en T2/T3",
+      "pips-" + code + "-double"
+    ));
+    panel.appendChild(makeRow(
+      "Triples symboles",
+      "Coûts comme {" + code + "}{" + code + "}{" + code + "}",
+      "pips-" + code + "-triple"
+    ));
+
+    pipsContainer.appendChild(panel);
+    PIPS_PANELS[code] = panel;
+  });
+
+  function refreshPipsVisibility(){
+    const anyVisible = COLOR_ORDER.some(code => !PIPS_PANELS[code].hidden);
+    pipsEmpty.hidden = anyVisible;
+  }
+  refreshPipsVisibility();
+
+  /* =========================================================
+     BUILD — Coûts bicolores stricts (par paire de couleurs)
+  ========================================================= */
+  const goldContainer = document.getElementById("goldContainer");
+  const goldEmpty = document.getElementById("goldEmpty");
+
+  const COMBO_ROWS = { gold: [], landDual: [], landTri: [], rockDual: [], rockTri: [] };
+
+  ALL_PAIRS.forEach(pair => {
+    const key = pair.join("");
+    const goldRow = createComboRow("gold-" + key, pair);
+    goldContainer.appendChild(goldRow);
+    COMBO_ROWS.gold.push({ row: goldRow, colors: pair });
+  });
+
+  /* =========================================================
+     BUILD — Terrains non-basiques (incolore / 1 / 2 / 3 / toutes)
+  ========================================================= */
+  const landColorlessRow = document.getElementById("landColorlessRow");
+  landColorlessRow.appendChild(makeRow("Terrain non-basique incolore", "Ne produit aucune des couleurs sélectionnées", "landColorless"));
+
+  const landMonoContainer = document.getElementById("landMonoContainer");
+  const LAND_MONO_ROWS = {};
+  REAL_COLORS.forEach(code => {
+    const row = makeRow("Terrain — " + COLOR_META[code].name + " uniquement", null, "landMono-" + code);
+    row.hidden = true;
+    landMonoContainer.appendChild(row);
+    LAND_MONO_ROWS[code] = row;
+  });
+
+  const landDualContainer = document.getElementById("landDualContainer");
+  ALL_PAIRS.forEach(pair => {
+    const row = createComboRow("landDual-" + pair.join(""), pair);
+    landDualContainer.appendChild(row);
+    COMBO_ROWS.landDual.push({ row, colors: pair });
+  });
+
+  const landTriContainer = document.getElementById("landTriContainer");
+  ALL_TRIOS.forEach(trio => {
+    const row = createComboRow("landTri-" + trio.join(""), trio);
+    landTriContainer.appendChild(row);
+    COMBO_ROWS.landTri.push({ row, colors: trio });
+  });
+
+  const landAllRow = document.getElementById("landAllRow");
+  const landAllInnerRow = makeRow("Terrain — toutes les couleurs sélectionnées", "Ex : terrain de commandement, terre arc-en-ciel", "landAll");
+  landAllRow.appendChild(landAllInnerRow);
+  landAllRow.hidden = true;
+
+  // NOUVEAU — fetchlands : toujours visibles (indépendantes des couleurs
+  // sélectionnées), puisqu'elles ne produisent elles-mêmes aucune couleur.
+  const fetchRow = document.getElementById("fetchRow");
+  fetchRow.appendChild(makeRow("Nombre de fetchlands", "Ne produisent pas de mana : comptent comme un terrain, sans être créditées d'une couleur", "fetchLands"));
+
+  /* =========================================================
+     BUILD — Rocks/Dorks : sources de couleur (incolore / 1 / 2 / 3 / toutes)
+  ========================================================= */
+  const rockColorlessRow = document.getElementById("rockColorlessRow");
+  rockColorlessRow.appendChild(makeRow("Rock/Dork incolore", "Ne produit aucune des couleurs sélectionnées", "rockColorless"));
+
+  const rockMonoContainer = document.getElementById("rockMonoContainer");
+  const ROCK_MONO_ROWS = {};
+  REAL_COLORS.forEach(code => {
+    const row = makeRow("Rock/Dork — " + COLOR_META[code].name + " uniquement", null, "rockMono-" + code);
+    row.hidden = true;
+    rockMonoContainer.appendChild(row);
+    ROCK_MONO_ROWS[code] = row;
+  });
+
+  const rockDualContainer = document.getElementById("rockDualContainer");
+  ALL_PAIRS.forEach(pair => {
+    const row = createComboRow("rockDual-" + pair.join(""), pair);
+    rockDualContainer.appendChild(row);
+    COMBO_ROWS.rockDual.push({ row, colors: pair });
+  });
+
+  const rockTriContainer = document.getElementById("rockTriContainer");
+  ALL_TRIOS.forEach(trio => {
+    const row = createComboRow("rockTri-" + trio.join(""), trio);
+    rockTriContainer.appendChild(row);
+    COMBO_ROWS.rockTri.push({ row, colors: trio });
+  });
+
+  const rockAllRow = document.getElementById("rockAllRow");
+  const rockAllInnerRow = makeRow("Rock/Dork — toutes les couleurs sélectionnées", "Ex : Solkanar, prisme de mana 5 couleurs", "rockAll");
+  rockAllRow.appendChild(rockAllInnerRow);
+  rockAllRow.hidden = true;
+
+  /* =========================================================
+     Visibilité dynamique selon les couleurs sélectionnées
+  ========================================================= */
+  function refreshComboVisibility(catKey, emptyEl){
+    let anyVisible = false;
+    COMBO_ROWS[catKey].forEach(({row, colors}) => {
+      // Une proposition (paire ou trio) n'est affichée que si TOUTES ses
+      // couleurs font partie de la sélection — jamais de couleur "en trop"
+      // qui ne serait pas jouée dans le deck (ex : pas de "Rouge / Blanc"
+      // si seuls Rouge et Vert sont sélectionnés). Les cases "incolore" des
+      // terrains/rocks restent à part et ne sont jamais concernées par ce
+      // filtre : elles sont toujours visibles.
+      const visible = colors.every(c => selectedColors.has(c));
+      row.hidden = !visible;
+      if (visible) anyVisible = true;
+    });
+    if (emptyEl) emptyEl.hidden = anyVisible;
+  }
+
+  function refreshColorDependentUI(){
+    REAL_COLORS.forEach(code => {
+      const show = selectedColors.has(code);
+      LAND_MONO_ROWS[code].hidden = !show;
+      ROCK_MONO_ROWS[code].hidden = !show;
+    });
+
+    refreshComboVisibility("gold", goldEmpty);
+    refreshComboVisibility("landDual", document.getElementById("landDualEmpty"));
+    refreshComboVisibility("landTri", document.getElementById("landTriEmpty"));
+    refreshComboVisibility("rockDual", document.getElementById("rockDualEmpty"));
+    refreshComboVisibility("rockTri", document.getElementById("rockTriEmpty"));
+
+    const showAll = selectedColors.size >= 2;
+    landAllRow.hidden = !showAll;
+    rockAllRow.hidden = !showAll;
+  }
+
+  /* =========================================================
+     Taille du deck (segmented control + option personnalisée)
+  ========================================================= */
+  const deckSizeGroup = document.getElementById("deckSizeGroup");
+  const customSizeRow = document.getElementById("customSizeRow");
+  const customSizeInput = document.getElementById("customSizeInput");
+  let currentDeckSize = 40;
+
+  deckSizeGroup.addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-size]");
+    if (!btn) return;
+    deckSizeGroup.querySelectorAll("button").forEach(b => {
+      b.classList.remove("active");
+      b.setAttribute("aria-checked", "false");
+    });
+    btn.classList.add("active");
+    btn.setAttribute("aria-checked", "true");
+
+    if (btn.dataset.size === "custom"){
+      customSizeRow.hidden = false;
+      const v = parseInt(customSizeInput.value, 10);
+      currentDeckSize = Number.isFinite(v) && v > 0 ? v : 60;
+      customSizeInput.focus();
+    } else {
+      customSizeRow.hidden = true;
+      currentDeckSize = parseInt(btn.dataset.size, 10);
+    }
+    recalcAll();
+  });
+
+  customSizeInput.addEventListener("input", () => {
+    const v = parseInt(customSizeInput.value, 10);
+    currentDeckSize = Number.isFinite(v) && v > 0 ? v : 0;
+    recalcAll();
+  });
+
+  /* =========================================================
+     Sélection des couleurs
+  ========================================================= */
+  const colorsGroup = document.getElementById("colorsGroup");
+  const selectedColors = new Set();
+
+  colorsGroup.addEventListener("click", (e) => {
+    const btn = e.target.closest(".color-toggle");
+    if (!btn) return;
+    const code = btn.dataset.color;
+    const nowActive = !btn.classList.contains("active");
+    btn.classList.toggle("active", nowActive);
+
+    if (nowActive){
+      selectedColors.add(code);
+      PIPS_PANELS[code].hidden = false;
+    } else {
+      selectedColors.delete(code);
+      PIPS_PANELS[code].hidden = true;
+    }
+    refreshPipsVisibility();
+    refreshColorDependentUI();
+    recalcAll();
+  });
+
+  /* =========================================================
+     CALCUL + RENDU DES RÉSULTATS
+  ========================================================= */
+  const totalLandsEl = document.getElementById("totalLands");
+  const avgCmcEl = document.getElementById("avgCmc");
+  const nonBasicEchoEl = document.getElementById("nonBasicEcho");
+  const basicsToAddEl = document.getElementById("basicsToAdd");
+  const manaBarEl = document.getElementById("manaBar");
+  const breakdownListEl = document.getElementById("breakdownList");
+  const resultEmptyEl = document.getElementById("resultEmpty");
+  const deckIdentityBadgeEl = document.getElementById("deckIdentityBadge");
+
+  const recapColorlessEl = document.getElementById("recapColorless");
+  const recapRockTotalEl = document.getElementById("recapRockTotal");
+  const recapFetchEl = document.getElementById("recapFetch");
+  const recapListEl = document.getElementById("recapList");
+  const recapEmptyEl = document.getElementById("recapEmpty");
+
+  function readComboDetail(prefix){
+    const mono = {};
+    REAL_COLORS.forEach(c => {
+      if (selectedColors.has(c)) mono[c] = stepperValue(prefix + "Mono-" + c);
+    });
+    const dual = {};
+    ALL_PAIRS.forEach(pair => {
+      if (pair.every(c => selectedColors.has(c))){
+        dual[pair.join("-")] = stepperValue(prefix + "Dual-" + pair.join(""));
+      }
+    });
+    const tri = {};
+    ALL_TRIOS.forEach(trio => {
+      if (trio.every(c => selectedColors.has(c))){
+        tri[trio.join("-")] = stepperValue(prefix + "Tri-" + trio.join(""));
+      }
+    });
+    return {
+      colorless: stepperValue(prefix + "Colorless"),
+      mono: mono,
+      dual: dual,
+      tri: tri,
+      all: selectedColors.size >= 2 ? stepperValue(prefix + "All") : 0
+    };
+  }
+
+  function readPairValues(prefix){
+    const out = {};
+    ALL_PAIRS.forEach(pair => {
+      if (pair.every(c => selectedColors.has(c))){
+        out[pair.join("-")] = stepperValue(prefix + "-" + pair.join(""));
+      }
+    });
+    return out;
+  }
+
+  function buildDeckData(){
+    const mana_curve = {};
+    mana_curve["0"] = stepperValue("cmc-0");
+    for (let i = 1; i <= 7; i++){
+      mana_curve[String(i)] = stepperValue("cmc-" + i);
+    }
+    mana_curve["8"] = stepperValue("cmc-8");
+
+    const color_pips = {};
+    selectedColors.forEach(code => {
+      color_pips[code] = {
+        total_pips: stepperValue("pips-" + code + "-total"),
+        early_double_pips: stepperValue("pips-" + code + "-double"),
+        early_triple_pips: stepperValue("pips-" + code + "-triple")
+      };
+    });
+
+    return {
+      deck_size: currentDeckSize,
+      mana_curve: mana_curve,
+      cantrips_count: stepperValue("cantrips"),
+      mana_acceleration: [
+        { cmc: 1, count: stepperValue("ramp01") },
+        { cmc: 2, count: stepperValue("ramp2") }
+      ],
+      non_basic_lands_detail: readComboDetail("land"),
+      fetch_lands_count: stepperValue("fetchLands"),
+      rocks_color_detail: readComboDetail("rock"),
+      selected_colors: Array.from(selectedColors),
+      color_pips: color_pips,
+      gold_pairs: readPairValues("gold")
+    };
+  }
+
+  function recalcAll(){
+    const deckData = buildDeckData();
+    const result = calculerBaseDeMana(deckData);
+
+    totalLandsEl.textContent = result.statistiques.totalTerrainsRecommandes;
+    avgCmcEl.textContent = result.statistiques.cmcMoyen;
+    nonBasicEchoEl.textContent = result.statistiques.terrainsNonBasiquesTotal;
+    basicsToAddEl.textContent = result.statistiques.terrainsBasiquesCibles;
+
+    renderBreakdown(result.repartition, result.statistiques.terrainsBasiquesCibles);
+    renderNonBasicRecap(result);
+    renderDeckIdentity(deckData, result);
+  }
+
+  function renderDeckIdentity(deckData, result){
+    const name = computeDeckIdentity(selectedColors, result.poidsCouleurs, deckData.deck_size);
+    if (!name){
+      deckIdentityBadgeEl.hidden = true;
+      deckIdentityBadgeEl.textContent = "";
+      return;
+    }
+    deckIdentityBadgeEl.hidden = false;
+    deckIdentityBadgeEl.textContent = name;
+  }
+
+  function renderBreakdown(repartition, total){
+    breakdownListEl.innerHTML = "";
+    manaBarEl.innerHTML = "";
+
+    const entries = COLOR_ORDER
+      .filter(code => selectedColors.has(code))
+      .map(code => ({ code, count: repartition[code] || 0 }));
+
+    const sumCounts = entries.reduce((s, e) => s + e.count, 0);
+
+    if (entries.length === 0 || sumCounts === 0){
+      manaBarEl.hidden = true;
+      resultEmptyEl.hidden = false;
+      return;
+    }
+
+    resultEmptyEl.hidden = true;
+    manaBarEl.hidden = false;
+
+    entries.forEach(({code, count}) => {
+      if (count <= 0) return;
+
+      const seg = document.createElement("div");
+      seg.className = "mana-bar-seg";
+      seg.style.width = (count / sumCounts * 100) + "%";
+      seg.style.background = "var(" + COLOR_META[code].varName + ")";
+      seg.title = COLOR_META[code].name + " : " + count;
+      manaBarEl.appendChild(seg);
+
+      const item = document.createElement("div");
+      item.className = "breakdown-item";
+      const sw = document.createElement("span");
+      sw.className = "breakdown-swatch";
+      sw.style.background = "var(" + COLOR_META[code].varName + ")";
+      item.appendChild(sw);
+      const lab = document.createElement("span");
+      lab.className = "breakdown-label";
+      lab.textContent = COLOR_META[code].name;
+      item.appendChild(lab);
+      const cnt = document.createElement("span");
+      cnt.className = "breakdown-count";
+      cnt.textContent = count;
+      item.appendChild(cnt);
+      breakdownListEl.appendChild(item);
+    });
+  }
+
+  function renderNonBasicRecap(result){
+    recapColorlessEl.textContent = result.terrainsColorless;
+    recapRockTotalEl.textContent = result.totalRocksColorSources;
+    recapFetchEl.textContent = result.fetchLandsCount;
+
+    recapListEl.innerHTML = "";
+
+    const entries = COLOR_ORDER
+      .filter(code => selectedColors.has(code))
+      .map(code => ({
+        code,
+        terrains: result.sourcesTerrains[code] || 0,
+        rocks: result.sourcesRocks[code] || 0
+      }))
+      .filter(e => e.terrains > 0 || e.rocks > 0);
+
+    const anyData = entries.length > 0;
+    recapEmptyEl.hidden = anyData;
+    recapListEl.hidden = !anyData;
+
+    entries.forEach(({code, terrains, rocks}) => {
+      const item = document.createElement("div");
+      item.className = "breakdown-item";
+      const sw = document.createElement("span");
+      sw.className = "breakdown-swatch";
+      sw.style.background = "var(" + COLOR_META[code].varName + ")";
+      item.appendChild(sw);
+
+      const labWrap = document.createElement("span");
+      labWrap.style.flex = "1";
+      const lab = document.createElement("span");
+      lab.className = "breakdown-label";
+      lab.textContent = COLOR_META[code].name;
+      labWrap.appendChild(lab);
+      if (rocks > 0){
+        const detail = document.createElement("span");
+        detail.className = "recap-item-detail";
+        detail.textContent = rocks + " via rocks/dorks";
+        labWrap.appendChild(detail);
+      }
+      item.appendChild(labWrap);
+
+      const cnt = document.createElement("span");
+      cnt.className = "breakdown-count";
+      cnt.textContent = terrains + rocks;
+      item.appendChild(cnt);
+
+      recapListEl.appendChild(item);
+    });
+  }
+
+  /* =========================================================
+     Repli / dépli du bandeau de résultat (confort mobile)
+  ========================================================= */
+  const resultCardBody = document.getElementById("resultCardBody");
+  const resultCollapseToggle = document.getElementById("resultCollapseToggle");
+  resultCollapseToggle.addEventListener("click", () => {
+    const collapsed = !resultCardBody.hidden;
+    resultCardBody.hidden = collapsed;
+    resultCollapseToggle.classList.toggle("is-collapsed", collapsed);
+    resultCollapseToggle.setAttribute("aria-expanded", String(!collapsed));
+  });
+
+  /* Initial render */
+  refreshColorDependentUI();
+  recalcAll();
+
+})();
+</script>
+
+<!-- ===================================================================
+     PWA — Enregistrement du service worker (bloc ajouté, indépendant
+     du script ci-dessus : aucune ligne de la logique applicative
+     n'a été modifiée).
+=================================================================== -->
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker
+        .register("service-worker.js")
+        .catch((err) => {
+          console.warn("Échec de l'enregistrement du service worker :", err);
+        });
+    });
+  }
+</script>
+</body>
+</html>
