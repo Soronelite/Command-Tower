@@ -619,6 +619,11 @@
   .fs-block .life-btn{ width: 66px; height: 66px; font-size: 2rem; }
   .fs-block .life-adjust-btn{ font-size: 0.9rem; padding:7px 14px; }
 
+  /* Les compteurs poison sont repoussés en bas de chaque bloc plein écran,
+     pour dégager le centre (total de vie) et rester accessibles au pouce. */
+  .fs-block .poison-row{ margin-top: auto; padding-top: 10px; }
+  .fs-block .life-adjust-row{ margin-top: 16px; }
+
   .fs-center-strip{
     flex-shrink: 0;
     display:flex;
@@ -631,6 +636,8 @@
   }
   .fs-timer-rotated{ transform: rotate(180deg); }
   .fs-dice-panel{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:center; }
+  .fs-strip-actions{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:center; }
+  .fs-strip-actions .secondary{ padding:8px 12px; font-size:0.82rem; }
   .fs-dice-panel .secondary{ padding:8px 12px; font-size:0.82rem; }
 
   /* ---------- Sélecteur de thème de couleur ---------- */
@@ -1310,7 +1317,7 @@
         </button>
         <div class="theme-menu" id="color-theme-menu" hidden role="menu" aria-label="Thèmes de couleur"></div>
       </div>
-      <button class="secondary" id="theme-toggle-btn" type="button" aria-pressed="false">☀️ Mode clair</button>
+      <button class="secondary" id="theme-toggle-btn" type="button">🌗 Auto</button>
     </div>
   </header>
 
@@ -1519,7 +1526,10 @@
           </div>
           <div class="dice-result" aria-live="polite"></div>
           <span class="timer-display round-timer-display" hidden></span>
-          <button class="secondary" id="fs-exit-btn" type="button">✕ Quitter le plein écran</button>
+          <div class="fs-strip-actions">
+            <button class="secondary" id="fs-restart-btn" type="button">⟲ Relancer le match</button>
+            <button class="secondary" id="fs-exit-btn" type="button">✕ Quitter</button>
+          </div>
         </div>
 
         <div class="fs-block">
@@ -1548,6 +1558,21 @@
 
     <!-- SUIVI DE TOURNOI -->
     <section id="view-tournament" class="view" role="tabpanel" aria-labelledby="tab-tournament" tabindex="0">
+
+      <div class="card">
+        <h2>Joueurs</h2>
+        <p class="hint">Ajoutez ici les participants sans passer par un draft. Cette liste est la même que celle de la page Draft : toute modification est répercutée des deux côtés.</p>
+        <div class="field-row">
+          <div class="field">
+            <label for="player-name-input-t">Nom du joueur</label>
+            <input type="text" id="player-name-input-t" placeholder="Ex : Alice" maxlength="40">
+          </div>
+          <button class="primary" id="add-player-btn-t" type="button">Ajouter</button>
+        </div>
+        <div id="player-error-t" class="alert error" hidden></div>
+        <div class="chip-list" id="player-chip-list-t" aria-live="polite"></div>
+        <p class="player-count" id="player-count-t">0 joueur</p>
+      </div>
 
       <div class="card">
         <h2>Résumé du draft</h2>
@@ -1721,13 +1746,13 @@
       <!-- Pips colorés -->
       <section class="card">
         <h2 class="card-title"><span class="idx">04</span> Besoins colorés (pips)</h2>
-        <p class="card-hint">Pour chaque couleur activée : total de symboles, doubles précoces, triples, puis coûts bicolores stricts ci-dessous.</p>
+        <p class="card-hint">Par couleur : total de symboles, doubles précoces et triples.</p>
         <div id="pipsContainer"></div>
         <p class="pips-empty" id="pipsEmpty">Aucune couleur sélectionnée — activez une couleur ci-dessus.</p>
 
         <div class="subsection">
           <h3 class="subsection-title">Coûts bicolores stricts</h3>
-          <p class="subsection-hint">Cartes exigeant les deux symboles à la fois, sans alternative (ex : {W}{U}).</p>
+          <p class="subsection-hint">Coûts exigeant les deux symboles à la fois, sans alternative.</p>
           <div id="goldContainer"></div>
           <p class="combo-empty" id="goldEmpty">Sélectionnez au moins 2 couleurs pour renseigner des coûts bicolores.</p>
         </div>
@@ -1736,26 +1761,26 @@
       <!-- Terrains non-basiques -->
       <section class="card">
         <h2 class="card-title"><span class="idx">05</span> Terrains non-basiques</h2>
-        <p class="card-hint">Détaillez vos terrains non-basiques selon le nombre de couleurs (parmi celles sélectionnées) qu'ils produisent.</p>
+        <p class="card-hint">Répartissez-les selon le nombre de couleurs sélectionnées qu'ils produisent.</p>
 
         <div id="landColorlessRow"></div>
 
         <div class="subsection">
           <h3 class="subsection-title">Produisent 1 couleur</h3>
-          <p class="subsection-hint">Un terrain non-basique qui ne produit qu'une seule couleur (ex : Temple tapé pour {W}).</p>
+          <p class="subsection-hint">Une seule couleur produite parmi celles sélectionnées.</p>
           <div id="landMonoContainer"></div>
         </div>
 
         <div class="subsection">
           <h3 class="subsection-title">Produisent 2 couleurs</h3>
-          <p class="subsection-hint">Terrains bicolores (ex : biomes, terres jumelles).</p>
+          <p class="subsection-hint">Terrains produisant deux des couleurs sélectionnées.</p>
           <div id="landDualContainer"></div>
           <p class="combo-empty" id="landDualEmpty">Sélectionnez au moins 2 couleurs pour renseigner des terrains bicolores.</p>
         </div>
 
         <div class="subsection">
           <h3 class="subsection-title">Produisent 3 couleurs</h3>
-          <p class="subsection-hint">Triomes et terrains tricolores — uniquement des combinaisons entre couleurs que vous avez sélectionnées.</p>
+          <p class="subsection-hint">Uniquement des combinaisons entre couleurs sélectionnées.</p>
           <div id="landTriContainer"></div>
           <p class="combo-empty" id="landTriEmpty">Sélectionnez au moins 3 couleurs pour renseigner des terrains tricolores.</p>
         </div>
@@ -1764,7 +1789,7 @@
 
         <div class="subsection">
           <h3 class="subsection-title">Fetchlands</h3>
-          <p class="subsection-hint">Terrains qui ne produisent pas de mana eux-mêmes : ils se sacrifient (souvent contre 1 point de vie) pour aller chercher un terrain possédant un type de terrain basique précis (ex : Île Engloutie / Flooded Strand). Comptés ici, ils occupent une place de terrain — donc réduisent d'autant le nombre de basiques à ajouter — mais ne sont crédités d'aucune couleur précise, puisqu'ils la déterminent au moment où ils sont sacrifiés.</p>
+          <p class="subsection-hint">Ils occupent une place de terrain — donc autant de basiques en moins à ajouter — mais ne sont crédités d'aucune couleur.</p>
           <div id="fetchRow"></div>
         </div>
       </section>
@@ -1772,12 +1797,12 @@
       <!-- Rocks/Dorks / Ramp / Cantrips -->
       <section class="card">
         <h2 class="card-title"><span class="idx">06</span> Rocks/Dorks, ramp &amp; cantrips</h2>
-        <p class="card-hint">Éléments du deck qui réduisent le nombre de terrains nécessaires, selon leur coût. Un "rock" est un artefact d'accélération (ex : Sol Ring), un "dork" une créature d'accélération (ex : Llanowar Elves) — les deux sont traités de la même façon ici.</p>
+        <p class="card-hint">Rocks et dorks, traités de la même façon : ils réduisent le nombre de terrains nécessaires selon leur coût.</p>
         <div id="rampModifiersGrid"></div>
 
         <div class="subsection">
           <h3 class="subsection-title">Sources de couleur des rocks/dorks</h3>
-          <p class="subsection-hint">Ces rocks/dorks comptent pour 3/4 d'une source colorée dans la répartition des basiques par couleur ci-dessus (comme les terrains, mais à poids réduit). Le nombre total de terrains recommandé reste déterminé uniquement par le CMC des rocks/dorks de la section précédente.</p>
+          <p class="subsection-hint">Comptés pour 3/4 d'une source colorée dans la répartition des basiques. Le total de terrains recommandé, lui, ne dépend que du coût des rocks/dorks ci-dessus.</p>
 
           <div id="rockColorlessRow"></div>
 
@@ -1808,7 +1833,7 @@
 
   </main>
 
-  <footer class="note">Les données sont sauvegardées automatiquement dans ce navigateur (résiste à un rafraîchissement accidentel) lorsque le fichier est ouvert hors de l'aperçu Claude.ai. Dans l'aperçu, elles restent en mémoire pour la session.</footer>
+  <footer class="note">Vos données restent sur cet appareil : elles sont enregistrées localement dans votre navigateur et survivent à un rafraîchissement de la page. Rien n'est envoyé sur Internet.</footer>
 </div>
 
 <div class="modal-overlay" id="modal-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="modal-title">
@@ -1922,6 +1947,9 @@
   const colorThemeBtn = document.getElementById('color-theme-btn');
   const colorThemeMenu = document.getElementById('color-theme-menu');
   const colorThemeLabel = document.getElementById('color-theme-label');
+  // themeMode = préférence de l'utilisateur : 'auto' (défaut), 'light' ou 'dark'.
+  // currentTheme = thème effectivement appliqué, résolu depuis themeMode.
+  let themeMode = 'auto';
   let currentTheme = 'dark';
   let currentColorTheme = 'Neutre';
 
@@ -1961,24 +1989,71 @@
     });
   }
 
+  // Détermine le thème à appliquer en mode automatique :
+  //  1. on suit la préférence exprimée par l'appareil (réglage système clair/sombre) ;
+  //  2. si l'appareil n'exprime aucune préférence, on bascule selon l'heure locale
+  //     (sombre de 19 h à 7 h).
+  function prefersDarkDevice(){
+    if(typeof window.matchMedia !== 'function') return null;
+    if(window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
+    if(window.matchMedia('(prefers-color-scheme: light)').matches) return 'light';
+    return null;   // aucune préférence exprimée par l'appareil
+  }
+  function themeFromClock(){
+    const h = new Date().getHours();
+    return (h >= 19 || h < 7) ? 'dark' : 'light';
+  }
+  function resolveAutoTheme(){
+    return prefersDarkDevice() || themeFromClock();
+  }
+  function autoSourceLabel(){
+    return prefersDarkDevice() ? 'réglage de l\'appareil' : 'heure locale';
+  }
+
+  const THEME_MODES = ['auto', 'light', 'dark'];
+  const THEME_MODE_LABEL = { auto: '🌗 Auto', light: '☀️ Clair', dark: '🌙 Sombre' };
+
   function applyTheme(){
+    currentTheme = (themeMode === 'auto') ? resolveAutoTheme() : themeMode;
+
     if(currentTheme === 'light'){
       document.documentElement.setAttribute('data-theme', 'light');
-      themeToggleBtn.textContent = '🌙 Mode sombre';
-      themeToggleBtn.setAttribute('aria-pressed', 'true');
     } else {
       document.documentElement.removeAttribute('data-theme');
-      themeToggleBtn.textContent = '☀️ Mode clair';
-      themeToggleBtn.setAttribute('aria-pressed', 'false');
     }
+
+    themeToggleBtn.textContent = THEME_MODE_LABEL[themeMode];
+    themeToggleBtn.setAttribute('aria-label',
+      themeMode === 'auto'
+        ? 'Thème automatique (' + (currentTheme === 'dark' ? 'sombre' : 'clair') + ', selon ' + autoSourceLabel() + ') — cliquer pour choisir manuellement'
+        : 'Thème ' + (themeMode === 'light' ? 'clair' : 'sombre') + ' — cliquer pour changer');
+    themeToggleBtn.title = themeMode === 'auto'
+      ? 'Automatique : suit ' + autoSourceLabel()
+      : 'Thème forcé en mode ' + (themeMode === 'light' ? 'clair' : 'sombre');
+
     applyColorTheme();   // l'accent dépend du mode clair/sombre
   }
 
+  // Le bouton fait défiler les trois modes : Auto → Clair → Sombre → Auto.
   themeToggleBtn.addEventListener('click', () => {
-    currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    themeMode = THEME_MODES[(THEME_MODES.indexOf(themeMode) + 1) % THEME_MODES.length];
     applyTheme();
     persistState();
   });
+
+  // En mode auto, on réagit aux changements de réglage système…
+  if(typeof window.matchMedia === 'function'){
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const onSchemeChange = () => { if(themeMode === 'auto') applyTheme(); };
+    if(typeof mq.addEventListener === 'function') mq.addEventListener('change', onSchemeChange);
+    else if(typeof mq.addListener === 'function') mq.addListener(onSchemeChange);
+  }
+  // …et au passage des heures charnières lorsque l'appareil n'exprime pas de préférence.
+  setInterval(() => {
+    if(themeMode === 'auto' && !prefersDarkDevice() && resolveAutoTheme() !== currentTheme){
+      applyTheme();
+    }
+  }, 60000);
 
   // Construction du menu déroulant des thèmes de couleur.
   function buildColorThemeMenu(){
@@ -2265,7 +2340,7 @@
           started: life.started
         },
         prefs: {
-          theme: currentTheme,
+          themeMode: themeMode,
           colorTheme: currentColorTheme
         }
       };
@@ -2301,7 +2376,11 @@
       matchIdCounter = maxId + 1;
     }
     if(saved.prefs){
-      if(saved.prefs.theme === 'light' || saved.prefs.theme === 'dark') currentTheme = saved.prefs.theme;
+      if(saved.prefs.themeMode === 'auto' || saved.prefs.themeMode === 'light' || saved.prefs.themeMode === 'dark'){
+        themeMode = saved.prefs.themeMode;
+      } else if(saved.prefs.theme === 'light' || saved.prefs.theme === 'dark'){
+        themeMode = saved.prefs.theme;   // compatibilité avec les versions précédentes
+      }
       if(saved.prefs.colorTheme && COLOR_THEMES[saved.prefs.colorTheme]) currentColorTheme = saved.prefs.colorTheme;
     }
     if(saved.life){
@@ -2315,11 +2394,22 @@
   }
 
   // ---------- Players ----------
-  const playerInput = document.getElementById('player-name-input');
-  const addPlayerBtn = document.getElementById('add-player-btn');
-  const playerError = document.getElementById('player-error');
-  const playerChipList = document.getElementById('player-chip-list');
-  const playerCountEl = document.getElementById('player-count');
+  // La liste des joueurs est unique (state.players) mais éditable depuis deux pages :
+  // Draft et Suivi de tournoi. Chaque emplacement est décrit ici, et tous sont
+  // re-rendus ensemble par renderPlayers() : la synchronisation est donc automatique.
+  const PLAYER_UIS = [
+    { input:'player-name-input',   addBtn:'add-player-btn',   error:'player-error',   list:'player-chip-list',   count:'player-count' },
+    { input:'player-name-input-t', addBtn:'add-player-btn-t', error:'player-error-t', list:'player-chip-list-t', count:'player-count-t' }
+  ].map(cfg => ({
+    input: document.getElementById(cfg.input),
+    addBtn: document.getElementById(cfg.addBtn),
+    error: document.getElementById(cfg.error),
+    list: document.getElementById(cfg.list),
+    count: document.getElementById(cfg.count)
+  })).filter(ui => ui.input && ui.addBtn && ui.list);
+
+  // Conservé pour compatibilité : l'emplacement principal (page Draft).
+  const playerError = PLAYER_UIS[0].error;
 
   function randomPlaceholderName(){
     const available = RANDOM_NAMES.filter(n => !state.players.some(p => p.toLowerCase() === n.toLowerCase()));
@@ -2327,56 +2417,66 @@
     return pool[Math.floor(Math.random() * pool.length)];
   }
   function refreshPlayerPlaceholder(){
-    playerInput.placeholder = 'Ex : ' + randomPlaceholderName();
+    const suggestion = 'Ex : ' + randomPlaceholderName();
+    PLAYER_UIS.forEach(ui => { ui.input.placeholder = suggestion; });
   }
 
   function renderPlayers(){
-    playerChipList.innerHTML = '';
-    state.players.forEach((name, idx) => {
-      const chip = document.createElement('div');
-      chip.className = 'chip';
+    PLAYER_UIS.forEach(ui => {
+      ui.list.innerHTML = '';
+      state.players.forEach((name, idx) => {
+        const chip = document.createElement('div');
+        chip.className = 'chip';
 
-      const span = document.createElement('span');
-      span.textContent = name;
+        const span = document.createElement('span');
+        span.textContent = name;
 
-      const removeBtn = document.createElement('button');
-      removeBtn.className = 'icon-btn';
-      removeBtn.type = 'button';
-      removeBtn.setAttribute('aria-label', 'Retirer ' + name);
-      removeBtn.textContent = '×';
-      removeBtn.addEventListener('click', () => {
-        state.players.splice(idx, 1);
-        invalidatePreviousDraws();
-        renderPlayers();
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'icon-btn';
+        removeBtn.type = 'button';
+        removeBtn.setAttribute('aria-label', 'Retirer ' + name);
+        removeBtn.textContent = '×';
+        removeBtn.addEventListener('click', () => {
+          state.players.splice(idx, 1);
+          invalidatePreviousDraws();
+          renderPlayers();
+          renderLifePlayerSelects();
+        });
+
+        chip.appendChild(span);
+        chip.appendChild(removeBtn);
+        ui.list.appendChild(chip);
       });
-
-      chip.appendChild(span);
-      chip.appendChild(removeBtn);
-      playerChipList.appendChild(chip);
+      if(ui.count){
+        ui.count.textContent = state.players.length + (state.players.length > 1 ? ' joueurs' : ' joueur');
+      }
     });
-    playerCountEl.textContent = state.players.length + (state.players.length > 1 ? ' joueurs' : ' joueur');
     refreshPlayerPlaceholder();
     persistState();
   }
 
-  function addPlayer(){
-    hideError(playerError);
-    const name = playerInput.value.trim();
-    if(!name){ showError(playerError, 'Indiquez un nom de joueur.'); return; }
+  function addPlayerFrom(ui){
+    PLAYER_UIS.forEach(u => { if(u.error) hideError(u.error); });
+    const name = ui.input.value.trim();
+    if(!name){ if(ui.error) showError(ui.error, 'Indiquez un nom de joueur.'); return; }
     if(state.players.some(p => p.toLowerCase() === name.toLowerCase())){
-      showError(playerError, 'Ce joueur est déjà dans la liste.');
+      if(ui.error) showError(ui.error, 'Ce joueur est déjà dans la liste.');
       return;
     }
     state.players.push(name);
-    playerInput.value = '';
+    // On vide le champ de saisie de tous les emplacements pour éviter un doublon accidentel.
+    PLAYER_UIS.forEach(u => { u.input.value = ''; });
     invalidatePreviousDraws();
     renderPlayers();
-    playerInput.focus();
+    renderLifePlayerSelects();
+    ui.input.focus();
   }
 
-  addPlayerBtn.addEventListener('click', addPlayer);
-  playerInput.addEventListener('keydown', e => {
-    if(e.key === 'Enter'){ e.preventDefault(); addPlayer(); }
+  PLAYER_UIS.forEach(ui => {
+    ui.addBtn.addEventListener('click', () => addPlayerFrom(ui));
+    ui.input.addEventListener('keydown', e => {
+      if(e.key === 'Enter'){ e.preventDefault(); addPlayerFrom(ui); }
+    });
   });
 
   // ---------- Booster draw ----------
@@ -2848,6 +2948,29 @@
     }
     lifeFullscreenOverlay.hidden = true;
   }
+
+  // Relance la partie en cours sans quitter le plein écran : les totaux et les
+  // compteurs poison repartent de la valeur de départ et l'historique est vidé.
+  function restartLifeMatch(){
+    life.totals = [life.startTotal, life.startTotal];
+    life.poison = [0, 0];
+    life.history = [];
+    updateLifeBlockDom(1);
+    updateLifeBlockDom(2);
+    renderLifeHistory();
+    persistState();
+  }
+
+  document.getElementById('fs-restart-btn').addEventListener('click', () => {
+    openModal(
+      'Relancer le match',
+      'Les points de vie et les compteurs poison des deux joueurs repartiront de ' + life.startTotal + '. L\'historique de la partie sera effacé.',
+      [
+        { label: 'Relancer le match', style: 'primary', onClick: restartLifeMatch },
+        { label: 'Annuler', style: 'secondary' }
+      ]
+    );
+  });
 
   lifeFullscreenBtn.addEventListener('click', enterLifeFullscreen);
   fsExitBtn.addEventListener('click', exitLifeFullscreen);
@@ -4620,15 +4743,33 @@
      n'a été modifiée).
 =================================================================== -->
 <script>
-  if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      navigator.serviceWorker
-        .register("service-worker.js")
-        .catch((err) => {
-          console.warn("Échec de l'enregistrement du service worker :", err);
+  /* PWA — enregistrement du service worker.
+     Le service worker et le manifeste sont des fichiers COMPAGNONS (service-worker.js,
+     manifest.json, icons/) : la spécification impose qu'un service worker soit un fichier
+     séparé servi en HTTP(S) — il ne peut pas être intégré à cette page. La logique de
+     l'application, elle, reste entièrement autonome et fonctionne sans eux.
+     On n'enregistre donc le service worker que lorsque le contexte s'y prête (site servi
+     en http/https, par ex. GitHub Pages) et on échoue en silence partout ailleurs
+     (ouverture directe du fichier, aperçu en bac à sable) pour ne pas polluer la console. */
+  (function () {
+    var canRegister =
+      "serviceWorker" in navigator &&
+      typeof fetch === "function" &&
+      (location.protocol === "https:" || location.protocol === "http:");
+    if (!canRegister) return;
+
+    window.addEventListener("load", function () {
+      // On vérifie d'abord que le fichier est bien déployé à côté de la page :
+      // cela évite l'erreur console lorsque seul index.html est présent.
+      fetch("service-worker.js", { method: "HEAD" })
+        .then(function (res) {
+          if (res.ok) return navigator.serviceWorker.register("service-worker.js");
+        })
+        .catch(function () {
+          /* Fichier absent ou contexte non compatible : fonctionnement normal sans PWA. */
         });
     });
-  }
+  })();
 </script>
 </body>
 </html>
