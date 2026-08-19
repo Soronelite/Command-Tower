@@ -22,7 +22,7 @@ const CACHE_NAME = `command-tower-${CACHE_VERSION}`;
 
 // Chemin du document principal de l'app (doit rester cohérent avec
 // "start_url" dans manifest.json).
-const APP_SHELL_URL = "./mtg-compagnon.html";
+const APP_SHELL_URL = "./index.html";
 
 // Fichiers mis en cache dès l'installation du service worker.
 const PRECACHE_URLS = [

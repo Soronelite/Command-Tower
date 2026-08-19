@@ -2,7 +2,7 @@
   "name": "Command Tower",
   "short_name": "Command Tower",
   "description": "Compagnon numérique pour vos parties et tournois de Magic: The Gathering : tirage au sort et répartition des joueurs, compteur de points de vie, suivi des matchs et classement, calculateur de base de mana.",
-  "start_url": "./mtg-compagnon.html",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
