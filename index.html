@@ -96,22 +96,35 @@
 
   .container{ max-width: 880px; margin: 0 auto; }
 
-  header{
-    display:flex;
-    align-items:flex-start;
-    justify-content:space-between;
-    gap: 16px;
-    flex-wrap: wrap;
-  }
+  /* Titre centré, puis une ligne « sous-titre à gauche / commandes à droite ».
+     Les commandes restaient auparavant collées au titre et passaient à la ligne
+     dès que leurs libellés s'allongeaient. */
+  header{ margin-bottom: 4px; }
   header h1{
     font-size: 1.5rem;
-    letter-spacing: 0.3px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
     margin: 0;
+    text-align: center;
+  }
+  .header-bar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap: 12px;
+    margin-top: 8px;
   }
   header .subtitle{
     color: var(--text-muted);
     font-size: 0.9rem;
-    margin-top: 6px;
+    margin: 0;
+    white-space: nowrap;
+  }
+  @media (max-width:400px){
+    header h1{ font-size: 1.25rem; }
+    header .subtitle{ font-size: 0.8rem; }
+    .header-controls .secondary,
+    .header-controls .theme-swatch-btn{ padding: 0 9px; font-size: 0.8rem; }
   }
 
   nav.tabs{
@@ -627,7 +640,7 @@
   .poison-btn{
     width: 26px;
     height: 26px;
-    border-radius: 50%;
+    border-radius: 6px;   /* carrés, comme les boutons ±3 / ±5 */
     border: 1px solid var(--border);
     background: var(--bg);
     color: var(--text);
@@ -710,6 +723,9 @@
   .life-fullscreen-overlay{
     position: fixed;
     inset: 0;
+    overflow: hidden;              /* aucun défilement : le contenu s'adapte */
+    overscroll-behavior: contain;  /* pas de rebond révélant la page derrière */
+    touch-action: manipulation;
     z-index: 2000;
     background: var(--bg);
     display:flex;
@@ -719,6 +735,8 @@
     height: 100dvh;
   }
   /* Zones haute et basse : grille de 1 ou 2 blocs selon le nombre de joueurs. */
+  body.fs-locked{ overflow: hidden; position: fixed; width: 100%; }
+
   .fs-zone{
     flex: 1;
     min-height: 0;
@@ -829,8 +847,32 @@
   }
   .fs-block .poison-btn{ width: clamp(22px, 4vh, 26px); height: clamp(22px, 4vh, 26px); }
 
+  /* Cycle jour/nuit : le bandeau commun change d'ambiance pour être lisible
+     d'un coup d'œil par tous les joueurs. */
+  .life-fullscreen-overlay[data-phase="day"] .fs-center-strip{
+    background: #ece7dc;
+    color: #1b1a17;
+  }
+  .life-fullscreen-overlay[data-phase="day"] .fs-center-strip .secondary{
+    color: #1b1a17;
+    border-color: rgba(0,0,0,0.25);
+  }
+  .life-fullscreen-overlay[data-phase="day"] .fs-center-strip .dice-result,
+  .life-fullscreen-overlay[data-phase="day"] .fs-center-strip .timer-display{ color: #1b1a17; }
+  .life-fullscreen-overlay[data-phase="day"] .fs-center-strip .monarch-btn{ color: #1b1a17; }
+
+  .life-fullscreen-overlay[data-phase="night"] .fs-center-strip{
+    background: #0d0c12;
+    color: #e8e4f0;
+  }
+  .life-fullscreen-overlay[data-phase="night"] .fs-center-strip .secondary{
+    color: #e8e4f0;
+    border-color: rgba(255,255,255,0.22);
+  }
+
   .fs-center-strip{
     position: relative;
+    transition: background-color .25s ease, color .25s ease;
     flex-shrink: 0;
     display:flex;
     flex-direction:column;
@@ -1727,6 +1769,30 @@
   .panel-section h4:first-child{ margin-top:0; }
   .panel-section p{ margin:0 0 8px; color: var(--text-muted); font-size:0.85rem; }
   .panel-section a{ color: var(--accent-strong); }
+  .panel-section textarea{
+    width:100%;
+    background: var(--bg);
+    border:1px solid var(--border);
+    color: var(--text);
+    border-radius:6px;
+    padding:9px 10px;
+    font-size:0.88rem;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 96px;
+    box-sizing: border-box;
+  }
+  .panel-section textarea:focus-visible{ outline:2px solid var(--accent); outline-offset:1px; border-color: var(--accent); }
+  .panel-section select{
+    background: var(--bg);
+    border:1px solid var(--border);
+    color: var(--text);
+    padding:8px 10px;
+    border-radius:6px;
+    font-size:0.88rem;
+    width:100%;
+    box-sizing: border-box;
+  }
   .panel-placeholder{
     border:1px dashed var(--border);
     border-radius:8px;
@@ -1808,6 +1874,13 @@
   }
   .monarch-crown svg{ width:100%; height:100%; display:block; }
   .life-fullscreen-overlay[data-monarch="on"] .fs-block .monarch-crown{ display:inline-flex; }
+  /* Couronne coiffant les points de vie : nettement plus grande. */
+  .fs-block .life-mid > .monarch-crown{
+    width: clamp(26px, 5vh, 40px);
+    height: clamp(26px, 5vh, 40px);
+    padding: 3px;
+    margin: 0 0 2px;
+  }
   .monarch-crown.is-monarch{ opacity:1; color: var(--accent-strong); }
   /* Cycle jour/nuit : discret tant qu'il n'est pas activé, comme la couronne. */
   /* Couronne et cycle jour/nuit partagent la même ligne. */
@@ -1927,11 +2000,10 @@
 <div class="container">
 
   <header>
-    <div>
-      <h1>Compagnon TCG — Magic the Gathering</h1>
-      <p class="subtitle">Draft, points de vie, suivi de tournoi et calcul de mana</p>
-    </div>
-    <div class="header-controls">
+    <h1>Command Tower</h1>
+    <div class="header-bar">
+      <p class="subtitle">Compagnon MTG</p>
+      <div class="header-controls">
       <div class="theme-picker">
         <button class="theme-swatch-btn" id="color-theme-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Changer le thème de couleur">
           <span class="swatch-dot" aria-hidden="true"></span>
@@ -1940,7 +2012,8 @@
         <div class="theme-menu" id="color-theme-menu" hidden role="menu" aria-label="Thèmes de couleur"></div>
       </div>
       <button class="secondary" id="theme-toggle-btn" type="button">🌗 Auto</button>
-      <button class="secondary" id="app-settings-btn" type="button" aria-haspopup="dialog" aria-label="Réglages, aide et contact">⚙</button>
+        <button class="secondary" id="app-settings-btn" type="button" aria-haspopup="dialog" aria-label="Réglages, aide et contact">⚙</button>
+      </div>
     </div>
   </header>
 
@@ -2053,8 +2126,8 @@
 
         <p class="hint" style="margin:12px 0 8px;">Points de vie de départ</p>
         <div class="score-picker" id="life-total-picker">
-          <button class="score-btn" data-total="10" type="button">10</button>
           <button class="score-btn selected" data-total="20" type="button">20</button>
+          <button class="score-btn" data-total="25" type="button">25</button>
           <button class="score-btn" data-total="30" type="button">30</button>
           <button class="score-btn" data-total="40" type="button">40</button>
           <button class="score-btn" data-total="custom" type="button">Personnalisé</button>
@@ -2683,20 +2756,72 @@
     ).join('');
   }
 
+  // Formulaire de contact. Sans serveur, l'envoi passe par le client de messagerie
+  // de l'appareil (lien mailto) : le message est pré-rempli, l'utilisateur n'a plus
+  // qu'à l'envoyer. L'adresse reste affichée et copiable en cas d'échec.
+  const CONTACT_EMAIL = 'command.tower.app@gmail.com';
+  const CONTACT_SUBJECTS = [
+    { value: 'bug',     label: 'Signaler un bug' },
+    { value: 'feature', label: 'Proposer / demander une fonctionnalité' },
+    { value: 'other',   label: 'Autre' }
+  ];
+
   function buildContactHtml(){
-    let html = '';
-    if(CONTACT_INTRO) html += '<p>' + escapeHtml(CONTACT_INTRO) + '</p>';
-    if(CONTACT_ITEMS.length === 0){
-      html += '<div class="panel-placeholder">Coordonnées à compléter : e-mail, dépôt du projet, formulaire de signalement…</div>';
-      return html;
+    return '<h4>Nous écrire</h4>' +
+      '<p>Votre message ouvrira votre application de messagerie, pré-rempli. ' +
+      'La date et la version de l\'application y sont ajoutées automatiquement.</p>' +
+      '<div class="field" style="margin-bottom:10px;">' +
+        '<label for="contact-subject">Votre message concerne</label>' +
+        '<select id="contact-subject">' +
+          CONTACT_SUBJECTS.map(s => '<option value="' + s.value + '">' + escapeHtml(s.label) + '</option>').join('') +
+        '</select>' +
+      '</div>' +
+      '<div class="field">' +
+        '<label for="contact-body">Votre message</label>' +
+        '<textarea id="contact-body" rows="6" placeholder="Décrivez votre demande…"></textarea>' +
+      '</div>' +
+      '<div id="contact-feedback" class="alert info" hidden></div>' +
+      '<button type="button" class="primary" id="contact-send-btn" style="margin-top:12px;">Envoyer</button>' +
+      '<p class="history-meta" style="margin-top:12px;">Si rien ne s\'ouvre, écrivez directement à ' +
+        '<a href="mailto:' + CONTACT_EMAIL + '">' + CONTACT_EMAIL + '</a>.</p>';
+  }
+
+  function sendContactMessage(){
+    const subjectSel = document.getElementById('contact-subject');
+    const bodyEl = document.getElementById('contact-body');
+    const feedback = document.getElementById('contact-feedback');
+    if(!subjectSel || !bodyEl || !feedback) return;
+
+    const message = bodyEl.value.trim();
+    if(!message){
+      feedback.hidden = false;
+      feedback.className = 'alert error';
+      feedback.textContent = 'Écrivez votre message avant de l\'envoyer.';
+      bodyEl.focus();
+      return;
     }
-    html += CONTACT_ITEMS.map(item => {
-      const value = item.href
-        ? '<a href="' + escapeHtml(item.href) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(item.value) + '</a>'
-        : escapeHtml(item.value);
-      return '<div class="settings-row"><span class="settings-name">' + escapeHtml(item.label) + '</span><span>' + value + '</span></div>';
-    }).join('');
-    return html;
+    const choice = CONTACT_SUBJECTS.find(s => s.value === subjectSel.value) || CONTACT_SUBJECTS[2];
+    const now = new Date();
+    const subject = 'Command Tower — ' + choice.label;
+    const body = message +
+      '\n\n—\n' +
+      'Envoyé depuis Command Tower\n' +
+      'Version : ' + APP_VERSION + '\n' +
+      'Date : ' + now.toLocaleDateString('fr-FR') + ' ' + pad2(now.getHours()) + ':' + pad2(now.getMinutes()) + '\n' +
+      'Objet : ' + choice.label;
+
+    const href = 'mailto:' + CONTACT_EMAIL +
+      '?subject=' + encodeURIComponent(subject) +
+      '&body=' + encodeURIComponent(body);
+
+    let opened = true;
+    try{ window.location.href = href; }catch(e){ opened = false; }
+
+    feedback.hidden = false;
+    feedback.className = 'alert info';
+    feedback.textContent = opened
+      ? 'Votre messagerie s\'ouvre avec le message pré-rempli : il ne reste plus qu\'à l\'envoyer. Si rien ne se passe, copiez l\'adresse indiquée ci-dessous.'
+      : 'Impossible d\'ouvrir la messagerie. Écrivez directement à ' + CONTACT_EMAIL + '.';
   }
 
   // ---------- Carnet de joueurs enregistrés ----------
@@ -2961,11 +3086,11 @@
     tabs.setAttribute('role', 'tablist');
 
     const sections = {
-      faq: { label: 'FAQ', html: buildFaqHtml() },
       roster: { label: 'Joueurs', html: buildRosterHtml() },
       contact: { label: 'Contact', html: buildContactHtml() },
-      version: { label: 'Version', html: buildVersionHtml() },
-      data: { label: 'Données', html: buildDataHtml() }
+      data: { label: 'Données', html: buildDataHtml() },
+      faq: { label: 'FAQ', html: buildFaqHtml() },
+      version: { label: 'Version', html: buildVersionHtml() }
     };
     const bodies = {};
 
@@ -2999,12 +3124,15 @@
 
     wrap.appendChild(tabs);
     Object.keys(bodies).forEach(k => wrap.appendChild(bodies[k]));
-    showPanel(initialTab && sections[initialTab] ? initialTab : 'faq');
+    showPanel(initialTab && sections[initialTab] ? initialTab : 'roster');
 
     modalActions.parentNode.insertBefore(wrap, modalActions);
 
     const clearBtn = wrap.querySelector('#clear-data-btn');
     if(clearBtn) clearBtn.addEventListener('click', confirmClearAppData);
+
+    const sendBtn = wrap.querySelector('#contact-send-btn');
+    if(sendBtn) sendBtn.addEventListener('click', sendContactMessage);
 
     const addBtn = wrap.querySelector('#roster-add-btn');
     if(addBtn) addBtn.addEventListener('click', () => openRosterEditor(null));
@@ -3022,7 +3150,7 @@
     modalOverlay.hidden = false;
   }
 
-  appSettingsBtn.addEventListener('click', () => openAppSettings('faq'));
+  appSettingsBtn.addEventListener('click', () => openAppSettings('roster'));
 
   // ---------- Theme toggle (clair/sombre + thème de couleur) ----------
   const themeToggleBtn = document.getElementById('theme-toggle-btn');
@@ -4037,15 +4165,8 @@
     const nameEl = document.createElement('div');
     nameEl.className = 'life-player-name';
     nameEl.dataset.slot = slot;
-    if(fullscreen){
-      // Couronne du monarque : masquée tant que personne ne l'est.
-      const crown = document.createElement('span');
-      crown.className = 'monarch-crown';
-      crown.dataset.slot = slot;
-      crown.innerHTML = CROWN_SVG;
-      nameEl.appendChild(crown);
-    }
-    const nameText = document.createElement('span');
+    // (la couronne est désormais placée au-dessus des points de vie)
+        const nameText = document.createElement('span');
     nameText.className = 'life-name-display';
     nameText.dataset.slot = slot;
     nameEl.appendChild(nameText);
@@ -4054,6 +4175,16 @@
     // Zone centrale : les points de vie, centrés dans l'espace disponible.
     const mid = document.createElement('div');
     mid.className = 'life-mid';
+
+    // En plein écran, la couronne du monarque coiffe les points de vie : plus
+    // grande et plus visible qu'à côté du nom, et plus facile à toucher.
+    if(fullscreen){
+      const crown = document.createElement('span');
+      crown.className = 'monarch-crown';
+      crown.dataset.slot = slot;
+      crown.innerHTML = CROWN_SVG;
+      mid.appendChild(crown);
+    }
 
     const controls = document.createElement('div');
     controls.className = 'life-controls';
@@ -4201,11 +4332,17 @@
 
   // Un sélecteur par joueur, régénéré selon le nombre de joueurs choisi.
   function renderLifePlayerSelects(){
-    // Une étoile signale les joueurs présents dans le carnet enregistré.
+    // On propose les joueurs enregistrés au carnet ET ceux de la partie en cours :
+    // il n'est pas nécessaire de passer par le Draft ou le Tournoi pour choisir
+    // quelqu'un du carnet. Une étoile distingue les joueurs enregistrés.
+    const names = [];
+    roster.forEach(p => { if(!names.some(n => n.toLowerCase() === p.name.toLowerCase())) names.push(p.name); });
+    state.players.forEach(n => { if(!names.some(x => x.toLowerCase() === n.toLowerCase())) names.push(n); });
+
     const options = '<option value="">— Choisir —</option>' +
-      state.players.map(name =>
+      names.map(name =>
         '<option value="' + escapeHtml(name) + '">' +
-        (themeForPlayerName(name) !== null || isRegistered(name) ? '★ ' : '') +
+        (isRegistered(name) ? '★ ' : '') +
         escapeHtml(name) + '</option>').join('');
     const previous = [];
     lifePlayerSelects.querySelectorAll('select').forEach(s => previous.push(s.value));
@@ -4222,7 +4359,7 @@
       sel.dataset.slot = s;
       sel.innerHTML = options;
       const wanted = previous[s - 1] || life.names[s - 1] || '';
-      if(state.players.includes(wanted)) sel.value = wanted;
+      if(names.some(n => n === wanted)) sel.value = wanted;
       field.appendChild(label);
       field.appendChild(sel);
       lifePlayerSelects.appendChild(field);
@@ -4981,6 +5118,9 @@
       : state === 'night' ? 'Il fait nuit — appuyer pour passer au jour'
       : 'Activer le cycle jour/nuit');
     btn.setAttribute('aria-pressed', String(state !== null));
+    // Le bandeau central prend l'ambiance correspondante.
+    if(state) lifeFullscreenOverlay.dataset.phase = state;
+    else lifeFullscreenOverlay.removeAttribute('data-phase');
   }
 
   function setDayNight(state){
@@ -5008,6 +5148,9 @@
 
   function enterLifeFullscreen(){
     lifeFullscreenOverlay.hidden = false;
+    // On bloque le défilement de la page derrière, sinon un geste vertical sur
+    // tablette fait apparaître l'application sous l'overlay.
+    document.body.classList.add('fs-locked');
     for(let s = 1; s <= life.playerCount; s++) updateLifeBlockDom(s);
     applyAllBlockThemes();
     applyMonarch();
@@ -5026,6 +5169,7 @@
   }
 
   function exitLifeFullscreen(){
+    document.body.classList.remove('fs-locked');
     releaseScreenLock();
     if(document.fullscreenElement && document.exitFullscreen){
       document.exitFullscreen().catch(() => {});
@@ -5992,7 +6136,7 @@
   startTournamentBtn.addEventListener('click', () => {
     hideError(tournamentSetupError);
     if(state.players.length < 2){
-      showError(tournamentSetupError, 'Il faut au moins 2 joueurs (ajoutez-les depuis la page Draft).');
+      showError(tournamentSetupError, 'Il faut au moins 2 joueurs pour lancer un tournoi.');
       return;
     }
     const dur = parseInt(matchDurationInput.value, 10);
