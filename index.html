@@ -138,7 +138,6 @@
 
   .view{ display:none; }
   .view.active{ display:block; animation: fadein .15s ease; }
-  @media (prefers-reduced-motion: reduce){ .view.active{ animation:none; } }
   @keyframes fadein{ from{opacity:0} to{opacity:1} }
 
   .card{
@@ -413,6 +412,79 @@
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   }
 
+  /* Carnet de joueurs enregistrés */
+  .roster-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:8px 0;
+    border-bottom:1px solid var(--border);
+  }
+  .roster-row:last-child{ border-bottom:none; }
+  .roster-swatch{
+    width:20px; height:20px; border-radius:50%;
+    border:1px solid rgba(0,0,0,0.25);
+    flex-shrink:0;
+  }
+  .roster-name{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:0.9rem; }
+  .roster-gear{
+    background:none; border:none; cursor:pointer;
+    color: var(--text-muted); font-size:1rem; padding:4px 6px; line-height:1;
+  }
+  .roster-gear:hover{ color: var(--accent-strong); }
+  .roster-empty{ color: var(--text-muted); font-style:italic; font-size:0.85rem; padding:6px 0; }
+
+  /* Puces de sélection rapide, sur les pages Draft / Tournoi / Points de vie */
+  .roster-quick{ display:flex; flex-wrap:wrap; gap:6px; margin:8px 0 0; }
+  .roster-chip{
+    display:inline-flex; align-items:center; gap:6px;
+    background: var(--bg);
+    border:1px solid var(--border);
+    border-radius:999px;
+    padding:5px 11px;
+    font-size:0.82rem;
+    color: var(--text);
+    cursor:pointer;
+  }
+  .roster-chip:hover{ border-color: var(--accent); }
+  .roster-chip[disabled]{ opacity:0.4; cursor:default; }
+  .roster-chip .dot{ width:11px; height:11px; border-radius:50%; flex-shrink:0; border:1px solid rgba(0,0,0,0.25); }
+  .roster-quick-label{ font-size:0.76rem; color: var(--text-muted); margin:10px 0 0; }
+
+  .changelog-entry{
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:10px 12px;
+    margin-bottom:8px;
+    background: var(--bg);
+  }
+  .changelog-head{ display:flex; align-items:baseline; gap:10px; margin-bottom:6px; }
+  .changelog-version{ color: var(--accent-strong); font-weight:700; font-size:0.9rem; }
+  .changelog-list{ margin:0; padding-left:18px; }
+  .changelog-list li{ font-size:0.83rem; color: var(--text-muted); margin-bottom:3px; line-height:1.4; }
+
+  .history-entry{
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:10px 12px;
+    margin-bottom:8px;
+    background: var(--bg);
+  }
+  .history-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    gap:10px;
+    flex-wrap:wrap;
+    margin-bottom:6px;
+  }
+  .history-date{ font-size:0.8rem; color: var(--text-muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .history-meta{ font-size:0.76rem; color: var(--text-muted); }
+  .history-podium{ display:flex; flex-direction:column; gap:2px; font-size:0.85rem; }
+  .history-podium span{ display:flex; gap:8px; }
+  .history-rank{ color: var(--accent-strong); font-weight:700; min-width:1.4em; }
+  .history-empty{ color: var(--text-muted); font-style:italic; font-size:0.85rem; }
+
   .dropped-list{ margin-top: 8px; display:flex; flex-direction:column; gap:6px; }
   .dropped-row{
     display:flex;
@@ -478,6 +550,13 @@
   }
   .life-btn:hover{ border-color: var(--accent); color: var(--accent-strong); }
   .life-btn:active{ transform: scale(0.93); }
+  /* Un maintien prolongé ne doit pas sélectionner le texte ni ouvrir le menu système. */
+  .life-btn, .life-adjust-btn, .poison-btn, .res-btn{
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: manipulation;
+  }
 
   .life-adjust-row{ display:flex; gap:6px; margin-top:14px; }
   .life-adjust-btn{
@@ -492,13 +571,49 @@
   }
   .life-adjust-btn:hover{ border-color: var(--accent); color: var(--accent-strong); }
 
-  /* Compteurs poison (en bas à droite du bloc) */
+  /* Ligne des compteurs permanents : taxe de commandant à gauche, poison à droite.
+     Ils se font face pour éviter toute erreur de saisie entre les deux. */
+  .counter-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    width:100%;
+    margin-top:12px;
+  }
+  /* Dans une ligne flex, align-self agit sur l'axe vertical : sans cette remise à
+     zéro, le poison (align-self:flex-end hérité) se retrouvait quelques pixels plus
+     bas que la taxe. */
+  .counter-row .poison-row{ margin-top:0; margin-left:auto; align-self:center; }
+  .counter-row .tax-row,
+  .counter-row .poison-row{ min-width:0; }
+  .tax-row{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    flex-shrink:0;
+  }
+  .tax-icon{ width:15px; height:15px; flex-shrink:0; display:inline-flex; }
+  .tax-icon svg{ width:100%; height:100%; display:block; }
+  .tax-icon svg path{ fill: var(--text-muted); }
+  .tax-count{
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size:1rem;
+    font-weight:700;
+    min-width:20px;
+    text-align:center;
+    color: var(--text);
+  }
+  .tax-count.active{ color: var(--accent-strong); }
+
+  /* Compteurs poison */
   .poison-row{
     display:flex;
     align-items:center;
     gap:6px;
     margin-top: 12px;
     align-self: flex-end;
+    flex-shrink:0;
   }
   .poison-icon{
     width: 15px;
@@ -633,9 +748,29 @@
     display:flex;
     flex-direction:column;
     align-items:center;
-    justify-content:center;
+    /* Trois zones empilées : le nom en haut, les points de vie centrés dans tout
+       l'espace restant, les compteurs et ressources ancrés en bas. */
+    justify-content:flex-start;
     padding: 10px;
     overflow: hidden;
+  }
+  /* Zone centrale : absorbe l'espace libre et centre les points de vie. */
+  .life-mid{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    min-height:0;
+    width:100%;
+  }
+  .fs-block .life-mid{ flex:1 1 auto; }
+  /* Zone basse : compteurs poison puis tiroir de ressources. */
+  .life-bottom{
+    display:flex;
+    flex-direction:column;
+    width:100%;
+    min-height:0;
+    flex-shrink:1;
   }
   /* Séparateur discret entre deux blocs côte à côte. */
   /* Séparateur entre deux joueurs côte à côte. Les blocs de la zone haute étant
@@ -665,15 +800,33 @@
     font-size: clamp(0.68rem, 1.7vh, 0.9rem);
     padding: clamp(3px, 0.8vh, 7px) clamp(6px, 1.4vw, 14px);
   }
-  .fs-block .poison-row{ margin-top: auto; padding-top: clamp(4px, 1vh, 10px); }
-  /* Deux joueurs côte à côte : leurs compteurs poison sont renvoyés chacun vers
-     l'extérieur, pour ne pas se retrouver côte à côte au centre (risque d'erreur).
-     Les blocs de la zone haute étant pivotés à 180°, l'alignement CSS y est inversé
-     par rapport au rendu écran. */
-  .fs-zone-bottom[data-cols="2"] .fs-block:nth-child(1) .poison-row{ align-self: flex-start; }
-  .fs-zone-bottom[data-cols="2"] .fs-block:nth-child(2) .poison-row{ align-self: flex-end; }
-  .fs-zone-top[data-cols="2"] .fs-block:nth-child(1) .poison-row{ align-self: flex-end; }
-  .fs-zone-top[data-cols="2"] .fs-block:nth-child(2) .poison-row{ align-self: flex-start; }
+  .fs-block .poison-row{ padding-top: 0; }
+  /* La ligne de compteurs doit tenir dans la largeur du bloc, y compris quand deux
+     joueurs se partagent une zone (3-4 joueurs) : tout y est resserré. */
+  .fs-block .counter-row{ margin-top: clamp(4px, 1vh, 10px); gap:6px; }
+  .fs-block .tax-row,
+  .fs-block .poison-row{ gap:4px; }
+  .fs-block .tax-icon,
+  .fs-block .poison-icon{ width:13px; height:13px; }
+  .fs-block .tax-count,
+  .fs-block .poison-count{ font-size:0.85rem; min-width:15px; }
+  .fs-zone[data-cols="2"] .fs-block .counter-row{ gap:4px; }
+  .fs-zone[data-cols="2"] .fs-block .tax-row,
+  .fs-zone[data-cols="2"] .fs-block .poison-row{ gap:2px; }
+  .fs-zone[data-cols="2"] .fs-block .poison-btn{ width:19px; height:19px; font-size:0.78rem; }
+  .fs-zone[data-cols="2"] .fs-block .tax-icon,
+  .fs-zone[data-cols="2"] .fs-block .poison-icon{ width:11px; height:11px; }
+  .fs-zone[data-cols="2"] .fs-block .tax-count,
+  .fs-zone[data-cols="2"] .fs-block .poison-count{ font-size:0.78rem; min-width:13px; }
+  /* Deux joueurs côte à côte : on inverse la paire (taxe / poison) du bloc intérieur
+     afin que les compteurs de deux voisins ne se retrouvent jamais collés au centre.
+     Les blocs de la zone haute étant pivotés à 180°, l'inversion y est symétrique. */
+  .fs-zone-bottom[data-cols="2"] .fs-block:nth-child(2) .counter-row{ flex-direction: row-reverse; }
+  .fs-zone-top[data-cols="2"] .fs-block:nth-child(1) .counter-row{ flex-direction: row-reverse; }
+  .fs-zone-bottom[data-cols="2"] .fs-block:nth-child(2) .counter-row .poison-row,
+  .fs-zone-top[data-cols="2"] .fs-block:nth-child(1) .counter-row .poison-row{
+    margin-left:0; margin-right:auto;
+  }
   .fs-block .poison-btn{ width: clamp(22px, 4vh, 26px); height: clamp(22px, 4vh, 26px); }
 
   .fs-center-strip{
@@ -719,23 +872,33 @@
     .fs-block .res-grid{ grid-template-columns: repeat(4, 1fr); }
     .fs-block .res-panel.open{ max-height: min(72px, 22vh); }
     .fs-block .res-toggle{ font-size:0.58rem; }
-  }
-  /* Zones à deux colonnes en paysage : les blocs redeviennent étroits. */
-  @media (orientation: landscape) and (max-height: 560px){
+    /* Zones à deux colonnes : les blocs redeviennent étroits. */
     .fs-zone[data-cols="2"] .fs-block .res-grid{ grid-template-columns: repeat(2, 1fr); }
+
   }
+
 
   /* Icônes de dés (SVG intégrés, teintés par la couleur courante du bouton). */
   .die-icon{ width:18px; height:18px; display:inline-block; vertical-align:-3px; }
   .die-icon svg{ width:100%; height:100%; display:block; }
   .dice-btn{ display:inline-flex; align-items:center; gap:6px; }
+  /* La pièce est un emoji : on le cale sur la même boîte que les icônes de dés. */
+  .coin-btn{ display:inline-flex; align-items:center; gap:6px; }
+  .coin-icon{
+    width:18px; height:18px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    font-size:16px;
+    line-height:1;
+  }
+  .fs-dice-panel .coin-icon{ width:20px; height:20px; font-size:18px; }
   .fs-dice-panel .die-icon{ width:20px; height:20px; }
 
   /* Résultat en cours de calcul : points animés. */
   .dice-result.rolling{ letter-spacing: 2px; opacity: 0.75; }
 
   /* Sélecteur de thème propre à chaque joueur, dans le coin du bloc plein écran. */
-  .fs-block{ position: relative; }
   .fs-theme-btn{
     position:absolute;
     top:10px; right:10px;
@@ -1515,6 +1678,94 @@
     .result-card{ top: 16px; }
   }
 
+  /* Les trois commandes de l'en-tête partagent exactement la même boîte. */
+  .header-controls{ align-items: center; }
+  .header-controls .secondary,
+  .header-controls .theme-swatch-btn{
+    height: 38px;
+    padding: 0 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.88rem;
+    line-height: 1;
+    box-sizing: border-box;
+  }
+  #app-settings-btn{ font-size: 1.05rem; padding: 0 13px; }
+
+  /* Panneau Réglages : onglets internes (FAQ / Contact). */
+  .panel-tabs{
+    display:flex;
+    gap:4px;
+    border-bottom:1px solid var(--border);
+    margin: 0 0 14px;
+    position: sticky;
+    top: 0;
+    background: var(--surface);
+    z-index: 1;
+  }
+  .panel-tab{
+    background:none;
+    border:none;
+    border-bottom:2px solid transparent;
+    color: var(--text-muted);
+    padding:8px 12px;
+    font-size:0.88rem;
+    font-weight:600;
+    cursor:pointer;
+    margin-bottom:-1px;
+  }
+  .panel-tab:hover{ color: var(--text); }
+  .panel-tab.active{ color: var(--accent-strong); border-bottom-color: var(--accent); }
+  .panel-section{ text-align:left; font-size:0.88rem; line-height:1.5; }
+  .panel-section[hidden]{ display:none; }
+  .panel-section h4{
+    font-size:0.9rem;
+    margin:14px 0 4px;
+    color: var(--text);
+  }
+  .panel-section h4:first-child{ margin-top:0; }
+  .panel-section p{ margin:0 0 8px; color: var(--text-muted); font-size:0.85rem; }
+  .panel-section a{ color: var(--accent-strong); }
+  .panel-placeholder{
+    border:1px dashed var(--border);
+    border-radius:8px;
+    padding:12px;
+    color: var(--text-muted);
+    font-size:0.82rem;
+    font-style:italic;
+  }
+  .faq-item{ border-bottom:1px solid var(--border); padding:8px 0; }
+  .faq-item:last-child{ border-bottom:none; }
+  .faq-item summary{
+    cursor:pointer;
+    font-weight:600;
+    font-size:0.86rem;
+    list-style:none;
+    display:flex;
+    justify-content:space-between;
+    gap:8px;
+  }
+  .faq-item summary::-webkit-details-marker{ display:none; }
+  .faq-item summary::after{ content:"+"; color: var(--accent-strong); flex-shrink:0; }
+  .faq-item[open] summary::after{ content:"−"; }
+  .faq-item p{ margin:8px 0 2px; }
+
+  button.danger{
+    background: none;
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    padding: 9px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.88rem;
+  }
+  button.danger:hover{ background: var(--danger); color: var(--bg); }
+
+  .copyright{ display:block; margin:6px 0; }
+  /* Étoile marquant les joueurs enregistrés au carnet. */
+  .roster-star{ color: var(--accent-strong); font-size:0.85em; margin-right:3px; flex-shrink:0; }
+
   .check-row{
     display:flex;
     align-items:center;
@@ -1524,6 +1775,60 @@
     margin: 0 0 14px;
   }
   .check-row input{ width:17px; height:17px; accent-color: var(--accent); cursor:pointer; flex-shrink:0; }
+
+  /* ---------- Monarque (plein écran uniquement) ---------- */
+  .monarch-btn{
+    background:none;
+    border:none;
+    padding:2px;
+    cursor:pointer;
+    line-height:0;
+    color: var(--text-muted);
+    opacity:0.35;                 /* discret tant que personne n'est monarque */
+    transition: opacity .2s ease;
+  }
+  .monarch-btn svg{ width:22px; height:22px; display:block; }
+  .monarch-btn:hover{ opacity:0.7; }
+  .monarch-btn.is-active{ opacity:1; color: var(--accent-strong); }
+
+  /* Couronne devant le nom : visible seulement quand un monarque est désigné. */
+  /* Couronne cliquable : agrandie et entourée d'une marge de confort, la cible
+     d'origine (15 px) étant trop petite au doigt. */
+  .monarch-crown{
+    display:none;
+    width:21px;
+    height:21px;
+    padding:4px;
+    margin-right:3px;
+    box-sizing:content-box;
+    flex-shrink:0;
+    opacity:0.28;
+    color: var(--text-muted);
+    cursor:pointer;
+  }
+  .monarch-crown svg{ width:100%; height:100%; display:block; }
+  .life-fullscreen-overlay[data-monarch="on"] .fs-block .monarch-crown{ display:inline-flex; }
+  .monarch-crown.is-monarch{ opacity:1; color: var(--accent-strong); }
+  /* Cycle jour/nuit : discret tant qu'il n'est pas activé, comme la couronne. */
+  /* Couronne et cycle jour/nuit partagent la même ligne. */
+  .strip-icons{ display:flex; align-items:center; justify-content:center; gap:14px; }
+  .daynight-btn.is-day{ opacity:1; color: var(--accent-strong); }
+  .daynight-btn.is-night{ opacity:1; color: var(--text); }
+  .fs-block .life-player-name{ display:flex; align-items:center; justify-content:center; }
+
+  /* Dégâts de commandant : bloc dédié en tête du tiroir de ressources. */
+  .cmd-dmg{ padding:4px 2px 2px; }
+  .cmd-dmg-title{
+    font-size:0.64rem;
+    text-transform:uppercase;
+    letter-spacing:0.05em;
+    color: var(--text-muted);
+    margin:0 0 3px;
+    font-weight:700;
+  }
+  .res-val.lethal{ color: var(--danger); }
+
+  .fan-content{ display:block; margin-bottom:6px; opacity:0.75; }
 
   /* ---------- Modale de confirmation réutilisable ---------- */
   .modal-overlay{
@@ -1535,8 +1840,11 @@
     align-items:center;
     justify-content:center;
     padding: 20px;
+    overflow-y: auto;   /* filet de sécurité si la boîte dépasse malgré tout */
   }
   .modal-overlay[hidden]{ display: none; }
+  /* La boîte ne dépasse jamais l'écran : titre et boutons restent visibles,
+     seul le contenu défile. Indispensable pour les panneaux longs (FAQ). */
   .modal-box{
     background: var(--surface);
     border: 1px solid var(--border);
@@ -1544,15 +1852,38 @@
     padding: 22px;
     max-width: 420px;
     width: 100%;
+    max-height: calc(100vh - 40px);
+    max-height: calc(100dvh - 40px);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
     box-shadow: 0 16px 40px rgba(0,0,0,0.5);
   }
+  .modal-box h3,
+  .modal-box > p,
+  .modal-actions{ flex-shrink: 0; }
+  /* Zone de contenu variable (FAQ, réglages, liste d'abandons) : c'est elle qui défile. */
+  .modal-dynamic{
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding-bottom: 14px;   /* évite que le contenu touche les boutons */
+    -webkit-overflow-scrolling: touch;
+  }
   .modal-box h3{ margin: 0 0 10px; font-size: 1.05rem; }
-  .modal-box p{ margin: 0 0 18px; font-size: 0.9rem; color: var(--text-muted); line-height: 1.45; }
+  .modal-box p{ white-space: pre-line; margin: 0 0 18px; font-size: 0.9rem; color: var(--text-muted); line-height: 1.45; }
   .modal-actions{ display:flex; flex-direction:column; gap: 8px; }
   .modal-actions button{ width: 100%; }
-  .modal-note{ font-size:0.8rem; color: var(--text-muted); margin: 12px 0 0; font-style: italic; }
 
   @media (max-width:560px){
+    /* Panneaux longs sur petit écran : on gagne de la place et de la largeur. */
+    .modal-overlay{ padding: 10px; }
+    .modal-box{ padding: 16px; max-width: none; max-height: calc(100dvh - 20px); }
+    .panel-section{ font-size: 0.85rem; }
+    .panel-section p{ font-size: 0.82rem; }
+    .faq-item summary{ font-size: 0.84rem; }
+    .panel-tab{ padding: 8px 10px; font-size: 0.84rem; }
+
     /* Le menu de thèmes est repositionné en JS (position fixe pleine largeur) ;
        ces règles servent de repli et bornent sa hauteur sur petit écran. */
     .theme-menu{
@@ -1567,8 +1898,9 @@
     .dice-panel .secondary{ flex:1; min-width:80px; width:auto; }
     .life-total{ font-size: 2.1rem; }
     .life-btn{ width: 44px; height: 44px; font-size: 1.4rem; }
-    .fs-block .life-total{ font-size: 3rem; }
-    .fs-block .life-btn{ width: 52px; height: 52px; font-size: 1.6rem; }
+    /* Note : ne pas redéfinir ici .fs-block .life-total / .life-btn — leurs clamp()
+       gèrent déjà le mobile, et une valeur fixe placée plus bas dans la feuille les
+       écraserait (même spécificité, règle postérieure). */
   }
 </style>
 <!-- ===================================================================
@@ -1608,6 +1940,7 @@
         <div class="theme-menu" id="color-theme-menu" hidden role="menu" aria-label="Thèmes de couleur"></div>
       </div>
       <button class="secondary" id="theme-toggle-btn" type="button">🌗 Auto</button>
+      <button class="secondary" id="app-settings-btn" type="button" aria-haspopup="dialog" aria-label="Réglages, aide et contact">⚙</button>
     </div>
   </header>
 
@@ -1634,6 +1967,8 @@
           <button class="primary" id="add-player-btn" type="button">Ajouter</button>
         </div>
         <div id="player-error" class="alert error" hidden></div>
+        <p class="roster-quick-label" id="roster-quick-label-d" hidden>Joueurs enregistrés — appuyez pour ajouter :</p>
+        <div class="roster-quick" id="roster-quick-d"></div>
         <div class="chip-list" id="player-chip-list" aria-live="polite"></div>
         <p class="player-count" id="player-count">0 joueur</p>
       </div>
@@ -1705,8 +2040,13 @@
         </div>
 
         <label class="check-row" style="margin-top:14px;">
+          <input type="checkbox" id="life-commander">
+          <span>Partie Commander (suivi de la taxe de commandant)</span>
+        </label>
+
+        <label class="check-row">
           <input type="checkbox" id="life-use-roster">
-          <span>Utiliser les joueurs du draft ou du tournoi</span>
+          <span>Utiliser les joueurs enregistrés, du draft ou du tournoi</span>
         </label>
 
         <div class="field-row" id="life-player-selects" hidden></div>
@@ -1737,7 +2077,7 @@
           <button class="secondary dice-btn" data-die="6" type="button" aria-label="Lancer un dé à 6 faces"><span class="die-icon"></span>D6</button>
           <button class="secondary dice-btn" data-die="12" type="button" aria-label="Lancer un dé à 12 faces"><span class="die-icon"></span>D12</button>
           <button class="secondary dice-btn" data-die="20" type="button" aria-label="Lancer un dé à 20 faces"><span class="die-icon"></span>D20</button>
-          <button class="secondary coin-btn" type="button" aria-label="Lancer une pièce (pile ou face)">🪙 Pile/Face</button>
+          <button class="secondary coin-btn" type="button" aria-label="Lancer une pièce (pile ou face)"><span class="coin-icon" aria-hidden="true">🪙</span>Pile/Face</button>
           <div class="dice-result" aria-live="polite"></div>
         </div>
       </div>
@@ -1763,7 +2103,11 @@
             <button class="secondary dice-btn" data-die="6" type="button" aria-label="Lancer un dé à 6 faces"><span class="die-icon"></span>D6</button>
             <button class="secondary dice-btn" data-die="12" type="button" aria-label="Lancer un dé à 12 faces"><span class="die-icon"></span>D12</button>
             <button class="secondary dice-btn" data-die="20" type="button" aria-label="Lancer un dé à 20 faces"><span class="die-icon"></span>D20</button>
-            <button class="secondary coin-btn" type="button" aria-label="Lancer une pièce (pile ou face)">🪙</button>
+            <button class="secondary coin-btn" type="button" aria-label="Lancer une pièce (pile ou face)"><span class="coin-icon" aria-hidden="true">🪙</span></button>
+          </div>
+          <div class="strip-icons">
+            <button class="monarch-btn" id="fs-monarch-btn" type="button" aria-haspopup="dialog" aria-label="Monarque"></button>
+            <button class="monarch-btn daynight-btn" id="fs-daynight-btn" type="button" aria-haspopup="dialog" aria-label="Cycle jour/nuit"></button>
           </div>
           <div class="dice-result" aria-live="polite"></div>
           <span class="timer-display round-timer-display" hidden></span>
@@ -1793,6 +2137,8 @@
           <button class="primary" id="add-player-btn-t" type="button">Ajouter</button>
         </div>
         <div id="player-error-t" class="alert error" hidden></div>
+        <p class="roster-quick-label" id="roster-quick-label-t" hidden>Joueurs enregistrés — appuyez pour ajouter :</p>
+        <div class="roster-quick" id="roster-quick-t"></div>
         <div class="chip-list" id="player-chip-list-t" aria-live="polite"></div>
         <p class="player-count" id="player-count-t">0 joueur</p>
       </div>
@@ -1804,8 +2150,16 @@
       </div>
 
       <div class="card">
-        <h2>Suivi des matchs — Best of 3</h2>
-        <p class="hint">Barème : victoire = 3 points (2-0 ou 2-1) · égalité au temps = 1 point chacun (1-1 ou 0-0) · exempt (bye) = victoire automatique à 3 points. Une fois le tournoi lancé, évitez de modifier la liste des joueurs dans l'onglet Draft.</p>
+        <h2>Suivi des matchs</h2>
+        <p class="hint">Barème officiel : victoire = 3 points · égalité au temps = 1 point chacun · exempt (bye) = victoire automatique à 3 points. Une fois le tournoi lancé, évitez de modifier la liste des joueurs.</p>
+
+        <p class="hint" style="margin:12px 0 8px;">Format des matchs</p>
+        <div class="score-picker" id="match-format-picker">
+          <button class="score-btn" data-bo="1" type="button" title="Une seule manche">Bo1</button>
+          <button class="score-btn selected" data-bo="3" type="button" title="Deux manches gagnantes — standard des rondes suisses">Bo3</button>
+          <button class="score-btn" data-bo="5" type="button" title="Trois manches gagnantes — phases finales">Bo5</button>
+        </div>
+        <p class="hint" id="match-format-hint" style="margin:0 0 12px;"></p>
 
         <div class="field-row">
           <div class="field">
@@ -1847,7 +2201,18 @@
         <div id="standings-container"></div>
       </div>
 
-    </section>
+    
+      <div class="card" id="tournament-history-card" hidden>
+        <h2>Tournois précédents</h2>
+        <p class="hint">Les tournois terminés sont archivés sur cet appareil : podium, format et nombre de rondes.</p>
+        <div id="tournament-history-list"></div>
+        <div class="actions" style="margin-top:12px;">
+          <button class="secondary" id="archive-tournament-btn" type="button" hidden>Archiver le tournoi en cours</button>
+          <button class="secondary" id="clear-history-btn" type="button">Vider l'historique</button>
+        </div>
+      </div>
+
+</section>
 
     <!-- CALCUL DE MANA -->
     <section id="view-mana" class="view" role="tabpanel" aria-labelledby="tab-mana" tabindex="0">
@@ -2056,7 +2421,10 @@
 
   </main>
 
-  <footer class="note">Vos données restent sur cet appareil : elles sont enregistrées localement dans votre navigateur et survivent à un rafraîchissement de la page. Rien n'est envoyé sur Internet.</footer>
+  <footer class="note">
+    <span class="fan-content">Command Tower est un contenu fan non officiel, autorisé par la Fan Content Policy de Wizards of the Coast. Il n'est ni approuvé ni soutenu par Wizards. Une partie du matériel utilisé est la propriété de Wizards of the Coast. © Wizards of the Coast LLC.</span>
+    <span class="copyright">Command Tower <span id="footer-version">v1.0</span> — © 2026 Command Tower. Magic: The Gathering est une marque déposée de Wizards of the Coast LLC.</span>
+    Vos données restent sur cet appareil : elles sont enregistrées localement dans votre navigateur et survivent à un rafraîchissement de la page. Rien n'est envoyé sur Internet.</footer>
 </div>
 
 <div class="modal-overlay" id="modal-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="modal-title">
@@ -2071,13 +2439,20 @@
 (function(){
   "use strict";
 
+  // Joueurs enregistrés : carnet d'adresses réutilisable d'une partie à l'autre.
+  // { id, name, theme } — theme est un nom de COLOR_THEMES, ou null.
+  const roster = [];
+  let rosterSeq = 1;
+
   const state = {
     players: [],
     draft: null,   // { perPlayer, min, max, assignment: { name: [n, n, ...] }, remaining: [n, ...] }
     tables: null   // { numTables, perTable, assignment: { name: {table, position, size} }, groups: [...] }
   };
 
+  const tournamentHistory = [];   // tournois terminés, du plus récent au plus ancien
   const tournament = {
+    bo: 3,                      // format des matchs : 1, 3 ou 5 manches
     rounds: [],          // [{ number, matches: [{id, isBye, player1, player2, score1, score2, points1, points2, status}] }]
     droppedPlayers: new Set()   // joueurs ayant abandonné : exclus des tirages futurs, conservés dans le classement
   };
@@ -2164,6 +2539,490 @@
       if(btn.dataset.view === 'life') renderLifePlayerSelects();
     });
   });
+
+  // ---------- Panneau Réglages (engrenage de l'en-tête) ----------
+  // Deux pages : FAQ et Contact. Les contenus sont regroupés ici, dans une seule
+  // structure de données, pour être complétés sans toucher au reste du code.
+  const FAQ_SECTIONS = [
+    {
+      title: 'Général',
+      items: [
+        { q: "C'est quoi ?",
+          a: "Un compagnon pour vos soirées Magic : tirage de draft, compteur de points de vie, suivi de tournoi et calculateur de base de mana, dans une seule page." },
+        { q: "Ça marche sans connexion ?",
+          a: "Oui. Une fois la page chargée, tout fonctionne hors ligne. Vous pouvez aussi l'installer sur l'écran d'accueil de votre téléphone." },
+        { q: "Où vont mes données ?",
+          a: "Nulle part : elles restent dans votre navigateur, sur cet appareil. Rien n'est envoyé sur Internet, et il n'y a pas de synchronisation entre appareils." },
+        { q: "Que se passe-t-il si je vide le cache ?",
+          a: "Vous perdez tout : parties, tournois et réglages. Il n'existe aucune sauvegarde ailleurs. Pensez-y si un tournoi est en cours." },
+        { q: "Comment changer les couleurs ?",
+          a: "En haut à droite : la pastille choisit une identité colorée (mono, guilde, tricolore…), le bouton suivant fait défiler Auto, Clair et Sombre. En Auto, l'application suit votre appareil, ou l'heure s'il ne dit rien." },
+        { q: "La liste de joueurs est-elle partagée ?",
+          a: "Oui entre Draft et Suivi de tournoi. Les Points de vie peuvent la réutiliser en cochant la case correspondante. On ne peut pas renommer un joueur : retirez-le et rajoutez-le." }
+      ]
+    },
+    {
+      title: 'Draft',
+      items: [
+        { q: "Comment se passe le tirage des boosters ?",
+          a: "Indiquez le nombre de boosters par joueur et la plage de numéros. Chacun reçoit des numéros uniques, et les boosters restants sont affichés." },
+        { q: "Et la répartition sur les tables ?",
+          a: "Donnez le nombre de tables et de joueurs par table : chacun reçoit sa table et sa place, avec un schéma qui montre qui est en face de qui." },
+        { q: "Que fait « Réinitialiser le draft » ?",
+          a: "Il efface les tirages et la liste des joueurs. Si une partie ou un tournoi tourne, l'application demande d'abord si vous voulez tout effacer ou seulement le draft." }
+      ]
+    },
+    {
+      title: 'Points de vie',
+      items: [
+        { q: "Combien de joueurs ?",
+          a: "De 1 à 4. En plein écran, les joueurs d'en face sont affichés à l'envers pour poser le téléphone au milieu de la table." },
+        { q: "Faut-il saisir des noms ?",
+          a: "Non, des noms sont tirés au hasard si vous n'en choisissez pas." },
+        { q: "Quels totaux de départ ?",
+          a: "10, 20, 30, 40 ou une valeur libre. Les points de vie peuvent passer sous zéro." },
+        { q: "À quoi sert le mode Commander ?",
+          a: "Il ajoute un compteur de taxe de commandant, qui monte de 2 en 2 comme le veut la règle." },
+        { q: "Poison, mana, énergie ?",
+          a: "Le poison est toujours affiché et passe en rouge à 10. Le mana par couleur et les compteurs d'énergie se trouvent dans le tiroir « Ressources », que chaque joueur ouvre de son côté." },
+        { q: "Chaque joueur peut-il avoir sa couleur ?",
+          a: "Oui, en plein écran. À un ou deux joueurs, via la pastille dans le coin de son bloc ; à trois ou quatre, via l'engrenage au centre." },
+        { q: "Que contient l'historique ?",
+          a: "Chaque changement de points de vie, de poison et de taxe, avec l'heure. Le mana et l'énergie n'y sont pas : ils bougent trop souvent." },
+        { q: "« Relancer le match » ou « Nouvelle partie » ?",
+          a: "« Relancer le match » remet tout le monde à son total de départ sans quitter le plein écran. « Nouvelle partie » ferme la partie et revient aux réglages." }
+      ]
+    },
+    {
+      title: 'Suivi de tournoi',
+      items: [
+        { q: "Quel format ?",
+          a: "Best of 3. Victoire = 3 points, égalité = 1 point chacun, défaite = 0, bye = 3 points. Une victoire vaut 3 points qu'elle soit en deux ou trois manches." },
+        { q: "Faut-il faire un draft avant ?",
+          a: "Non, les joueurs peuvent être saisis directement dans l'onglet Tournoi." },
+        { q: "Comment sont départagés les ex æquo ?",
+          a: "Avec les critères officiels, dans l'ordre : points, OMW%, GW%, OGW%, puis l'affrontement direct." },
+        { q: "Comment marche le bye ?",
+          a: "Il va au joueur qui en a eu le moins, et à égalité au moins bien classé. Il rapporte 3 points mais ne compte pas comme adversaire dans les départages." },
+        { q: "Un joueur abandonne, que faire ?",
+          a: "L'application le demande avant de générer le round suivant : cochez-le. Il reste au classement avec la mention « abandon » mais n'est plus apparié." },
+        { q: "Le chrono ?",
+          a: "Il décompte la durée choisie (50 minutes par défaut), sonne à la fin, repart à chaque nouveau round et s'affiche aussi sur la page Points de vie." },
+        { q: "Peut-on limiter le nombre de rounds ?",
+          a: "Oui, avec le champ « Rounds max ». Vide = illimité." }
+      ]
+    },
+    {
+      title: 'Calculateur de mana',
+      items: [
+        { q: "À quoi ça sert ?",
+          a: "À savoir combien de terrains mettre dans un deck, et comment les répartir par couleur, selon sa taille, sa courbe et ses besoins en symboles colorés." },
+        { q: "Comment sont comptées les sources déjà présentes ?",
+          a: "Un terrain non-basique vaut une source pleine, une rock ou un dork 3/4 de source (ils peuvent être détruits ou piochés tard). Les fetchlands prennent une place de terrain mais ne comptent pour aucune couleur." },
+        { q: "Ça marche pour un deck de 40 ou 80 cartes ?",
+          a: "Oui : 40, 50, 60, 80, 100 ou une taille libre." },
+        { q: "D'où vient le calcul ?",
+          a: "Pas de nous. La base du calcul a été fournie par un tiers, et les pondérations qui l'affinent reprennent les travaux de Frank Karsten, dont les études statistiques font référence pour les bases de mana. Le mérite leur revient : l'application ne fait que les appliquer." }
+      ]
+    }
+  ];;
+
+  // Renseignez ici vos coordonnées : chaque entrée devient une ligne du panneau Contact.
+  // Exemple : { label: 'E-mail', value: 'contact@exemple.fr', href: 'mailto:contact@exemple.fr' }
+  const CONTACT_ITEMS = [];
+  const CONTACT_INTRO = "";
+
+  // ---------- Version et journal des modifications ----------
+  // NOTE INTERNE : à chaque nouvelle version, ajouter une entrée EN TÊTE de CHANGELOG
+  // ({ version, date, changes: [...] }) et mettre APP_VERSION à jour. Le pied de page
+  // et l'onglet « Version » des réglages se mettent à jour automatiquement.
+  const APP_VERSION = '1.0';
+  const CHANGELOG = [
+    {
+      version: '1.0',
+      date: '2026',
+      changes: [
+        'Première version publique.',
+        'Draft : tirage des boosters et répartition des joueurs sur les tables.',
+        'Points de vie : 1 à 4 joueurs, plein écran, poison, ressources, monarque et cycle jour/nuit.',
+        'Modes Commander et Duel Commander avec taxe et dégâts de commandant.',
+        'Suivi de tournoi : formats Bo1/Bo3/Bo5, départages officiels, chrono et historique.',
+        'Calculateur de base de mana intégré.',
+        'Carnet de joueurs enregistrés, thèmes de couleur et fonctionnement hors ligne.'
+      ]
+    }
+  ];
+
+  function buildVersionHtml(){
+    return '<h4>Version ' + escapeHtml(APP_VERSION) + '</h4>' +
+      '<p>Application autonome, fonctionnant hors ligne et sans compte.</p>' +
+      CHANGELOG.map(entry =>
+        '<div class="changelog-entry">' +
+          '<div class="changelog-head">' +
+            '<span class="changelog-version">v' + escapeHtml(entry.version) + '</span>' +
+            '<span class="history-meta">' + escapeHtml(entry.date) + '</span>' +
+          '</div>' +
+          '<ul class="changelog-list">' +
+            entry.changes.map(ch => '<li>' + escapeHtml(ch) + '</li>').join('') +
+          '</ul>' +
+        '</div>').join('');
+  }
+
+  const appSettingsBtn = document.getElementById('app-settings-btn');
+
+  function buildFaqHtml(){
+    if(FAQ_SECTIONS.length === 0){
+      return '<div class="panel-placeholder">Contenu de la FAQ à compléter.</div>';
+    }
+    return FAQ_SECTIONS.map(section =>
+      '<h4>' + escapeHtml(section.title) + '</h4>' +
+      section.items.map(item =>
+        '<details class="faq-item"><summary>' + escapeHtml(item.q) + '</summary>' +
+        '<p>' + escapeHtml(item.a) + '</p></details>'
+      ).join('')
+    ).join('');
+  }
+
+  function buildContactHtml(){
+    let html = '';
+    if(CONTACT_INTRO) html += '<p>' + escapeHtml(CONTACT_INTRO) + '</p>';
+    if(CONTACT_ITEMS.length === 0){
+      html += '<div class="panel-placeholder">Coordonnées à compléter : e-mail, dépôt du projet, formulaire de signalement…</div>';
+      return html;
+    }
+    html += CONTACT_ITEMS.map(item => {
+      const value = item.href
+        ? '<a href="' + escapeHtml(item.href) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(item.value) + '</a>'
+        : escapeHtml(item.value);
+      return '<div class="settings-row"><span class="settings-name">' + escapeHtml(item.label) + '</span><span>' + value + '</span></div>';
+    }).join('');
+    return html;
+  }
+
+  // ---------- Carnet de joueurs enregistrés ----------
+  function themeGradient(name){
+    return (name && COLOR_THEMES[name]) ? COLOR_THEMES[name].gradient : 'var(--accent-gradient)';
+  }
+  function findRoster(id){ return roster.find(p => p.id === id) || null; }
+  function isRegistered(name){
+    return roster.some(p => p.name.toLowerCase() === String(name || '').toLowerCase());
+  }
+
+  // Applique la couleur enregistrée d'un joueur à son bloc de points de vie.
+  function themeForPlayerName(name){
+    const entry = roster.find(p => p.name.toLowerCase() === String(name || '').toLowerCase());
+    return entry ? entry.theme : null;
+  }
+
+  function buildRosterListHtml(){
+    if(roster.length === 0){
+      return '<p class="roster-empty">Aucun joueur enregistré. Ajoutez vos partenaires habituels pour les retrouver d\'une partie à l\'autre.</p>';
+    }
+    return roster.map(p =>
+      '<div class="roster-row">' +
+        '<span class="roster-swatch" style="background:' + themeGradient(p.theme) + '"></span>' +
+        '<span class="roster-name">' + escapeHtml(p.name) + '</span>' +
+        '<button type="button" class="roster-gear" data-roster-edit="' + p.id + '" aria-label="Modifier ' + escapeHtml(p.name) + '">⚙</button>' +
+      '</div>'
+    ).join('');
+  }
+
+  function buildRosterHtml(){
+    return '<h4>Joueurs enregistrés</h4>' +
+      '<p>Enregistrez vos joueurs récurrents avec leur couleur : ils apparaîtront en un geste dans le Draft, le Suivi de tournoi et les Points de vie.</p>' +
+      '<div id="roster-list">' + buildRosterListHtml() + '</div>' +
+      '<button type="button" class="primary" id="roster-add-btn" style="margin-top:12px;">Ajouter un joueur</button>';
+  }
+
+  // Formulaire de création / modification, réutilisé pour les deux cas.
+  function openRosterEditor(id){
+    clearModalDynamic();
+    const entry = id ? findRoster(id) : null;
+    modalTitle.textContent = entry ? 'Modifier le joueur' : 'Nouveau joueur';
+    modalMessage.textContent = entry
+      ? 'Modifiez son nom ou sa couleur, ou supprimez-le du carnet.'
+      : 'Indiquez son nom et, si vous le souhaitez, une couleur qui lui sera associée.';
+    modalMessage.hidden = false;
+    modalActions.innerHTML = '';
+
+    const wrap = document.createElement('div');
+    wrap.className = 'modal-dynamic';
+
+    const field = document.createElement('div');
+    field.className = 'field';
+    field.style.marginBottom = '12px';
+    field.innerHTML = '<label for="roster-name-input">Nom</label>' +
+      '<input type="text" id="roster-name-input" maxlength="40" placeholder="Ex : Alice">';
+    wrap.appendChild(field);
+
+    const colField = document.createElement('div');
+    colField.className = 'field';
+    colField.innerHTML = '<label for="roster-theme-select">Couleur par défaut</label>';
+    const sel = document.createElement('select');
+    sel.id = 'roster-theme-select';
+    sel.innerHTML = '<option value="">Aucune (thème de l\'application)</option>' +
+      THEME_GROUPS.map(g =>
+        '<optgroup label="' + escapeHtml(g.label) + '">' +
+        g.names.filter(n => COLOR_THEMES[n]).map(n => '<option value="' + escapeHtml(n) + '">' + escapeHtml(n) + '</option>').join('') +
+        '</optgroup>').join('');
+    colField.appendChild(sel);
+    wrap.appendChild(colField);
+
+    const preview = document.createElement('div');
+    preview.style.cssText = 'height:4px;border-radius:2px;margin-top:12px;';
+    preview.style.background = themeGradient(entry ? entry.theme : null);
+    wrap.appendChild(preview);
+
+    modalActions.parentNode.insertBefore(wrap, modalActions);
+
+    const input = wrap.querySelector('#roster-name-input');
+    if(entry){ input.value = entry.name; sel.value = entry.theme || ''; }
+    sel.addEventListener('change', () => { preview.style.background = themeGradient(sel.value || null); });
+
+    const save = document.createElement('button');
+    save.type = 'button'; save.className = 'primary';
+    save.textContent = entry ? 'Enregistrer' : 'Ajouter';
+    save.addEventListener('click', () => {
+      const name = input.value.trim();
+      if(!name){ input.focus(); return; }
+      const clash = roster.some(p => p.name.toLowerCase() === name.toLowerCase() && (!entry || p.id !== entry.id));
+      if(clash){
+        modalMessage.textContent = 'Un joueur porte déjà ce nom dans le carnet.';
+        return;
+      }
+      if(entry){ entry.name = name; entry.theme = sel.value || null; }
+      else roster.push({ id: 'p' + (rosterSeq++), name: name, theme: sel.value || null });
+      persistState();
+      renderRosterEverywhere();
+      openAppSettings('roster');
+    });
+
+    modalActions.appendChild(save);
+
+    if(entry){
+      const del = document.createElement('button');
+      del.type = 'button'; del.className = 'danger';
+      del.textContent = 'Supprimer ce joueur';
+      del.addEventListener('click', () => {
+        const idx = roster.findIndex(p => p.id === entry.id);
+        if(idx >= 0) roster.splice(idx, 1);
+        persistState();
+        renderRosterEverywhere();
+        openAppSettings('roster');
+      });
+      modalActions.appendChild(del);
+    }
+
+    const cancel = document.createElement('button');
+    cancel.type = 'button'; cancel.className = 'secondary';
+    cancel.textContent = 'Annuler';
+    cancel.addEventListener('click', () => openAppSettings('roster'));
+    modalActions.appendChild(cancel);
+
+    modalOverlay.hidden = false;
+    input.focus();
+  }
+
+  // Puces de sélection rapide sur les pages Draft et Suivi de tournoi.
+  function renderRosterQuickPicks(){
+    [['roster-quick-d','roster-quick-label-d'], ['roster-quick-t','roster-quick-label-t']].forEach(([listId, labelId]) => {
+      const list = document.getElementById(listId);
+      const label = document.getElementById(labelId);
+      if(!list || !label) return;
+      const available = roster.filter(p => !state.players.some(n => n.toLowerCase() === p.name.toLowerCase()));
+      label.hidden = roster.length === 0;
+      list.innerHTML = '';
+      if(roster.length === 0) return;
+      roster.forEach(p => {
+        const used = !available.includes(p);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'roster-chip';
+        btn.disabled = used;
+        btn.title = used ? p.name + ' est déjà dans la liste' : 'Ajouter ' + p.name;
+        btn.innerHTML = '<span class="dot" style="background:' + themeGradient(p.theme) + '"></span>' + escapeHtml(p.name);
+        btn.addEventListener('click', () => {
+          if(state.players.some(n => n.toLowerCase() === p.name.toLowerCase())) return;
+          state.players.push(p.name);
+          invalidatePreviousDraws();
+          renderPlayers();
+          renderLifePlayerSelects();
+          renderRosterQuickPicks();
+        });
+        list.appendChild(btn);
+      });
+    });
+  }
+
+  function renderRosterEverywhere(){
+    renderRosterQuickPicks();
+    renderLifePlayerSelects();
+  }
+
+  // Catégories effaçables séparément : on ne perd que ce qu'on choisit.
+  const DATA_SCOPES = [
+    { key: 'draft',      label: 'Draft (joueurs de la partie, tirages, tables)' },
+    { key: 'life',       label: 'Partie de points de vie en cours' },
+    { key: 'tournament', label: 'Tournoi en cours' },
+    { key: 'history',    label: 'Historique des tournois archivés' },
+    { key: 'roster',     label: 'Joueurs enregistrés (carnet)' },
+    { key: 'prefs',      label: 'Réglages (thème, couleurs)' },
+    { key: 'cache',      label: 'Cache hors ligne de l\'application' }
+  ];
+
+  function buildDataHtml(){
+    return '<h4>Données enregistrées</h4>' +
+      '<p>Tout est conservé dans ce navigateur, sur cet appareil uniquement. ' +
+      'Cochez ce que vous souhaitez effacer : le reste sera conservé.</p>' +
+      DATA_SCOPES.map(s =>
+        '<label class="check-row" style="margin:0 0 6px;">' +
+          '<input type="checkbox" class="data-scope" value="' + s.key + '">' +
+          '<span>' + s.label + '</span>' +
+        '</label>').join('') +
+      '<p style="margin-top:10px;"><strong>Cette action est définitive :</strong> il n\'existe aucune sauvegarde ailleurs.</p>' +
+      '<button type="button" class="danger" id="clear-data-btn">Effacer la sélection</button>';
+  }
+
+  // Efface l'état enregistré, puis le cache hors ligne s'il existe, et recharge.
+  // Efface uniquement les catégories demandées, puis recharge si nécessaire.
+  function clearSelectedData(scopes){
+    persistDisabled = true;
+    if(persistTimer){ clearTimeout(persistTimer); persistTimer = null; }
+
+    if(scopes.indexOf('draft') >= 0){ state.players = []; state.draft = null; state.tables = null; }
+    if(scopes.indexOf('life') >= 0){
+      life.started = false; life.names = []; life.totals = []; life.poison = [];
+      life.resources = []; life.history = []; life.monarch = null; life.dayNight = null;
+    }
+    if(scopes.indexOf('tournament') >= 0){ tournament.rounds = []; tournament.droppedPlayers.clear(); }
+    if(scopes.indexOf('history') >= 0){ tournamentHistory.length = 0; }
+    if(scopes.indexOf('roster') >= 0){ roster.length = 0; }
+    if(scopes.indexOf('prefs') >= 0){ themeMode = 'auto'; currentColorTheme = 'Neutre'; }
+
+    // On réécrit l'état conservé, sauf si tout est effacé.
+    persistDisabled = false;
+    try{ persistNow(); }catch(e){}
+
+    const done = () => { try{ location.reload(); }catch(e){} };
+    if(scopes.indexOf('cache') >= 0 && typeof caches !== 'undefined' && caches.keys){
+      caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).then(done, done);
+    } else {
+      done();
+    }
+  }
+
+  function clearAppData(){
+    // Une sauvegarde temporisée encore en attente réécrirait l'état juste après
+    // l'effacement : on l'annule et on bloque toute écriture ultérieure.
+    persistDisabled = true;
+    if(persistTimer){ clearTimeout(persistTimer); persistTimer = null; }
+    try{ window.localStorage.removeItem(STORAGE_KEY); }catch(e){}
+    const done = () => { try{ location.reload(); }catch(e){} };
+    if(typeof caches !== 'undefined' && caches.keys){
+      caches.keys()
+        .then(keys => Promise.all(keys.map(k => caches.delete(k))))
+        .then(done, done);
+    } else {
+      done();
+    }
+  }
+
+  function confirmClearAppData(){
+    const scopes = [...document.querySelectorAll('.data-scope:checked')].map(cb => cb.value);
+    if(scopes.length === 0){
+      openModal('Rien de sélectionné',
+        'Cochez au moins une catégorie de données à effacer.',
+        [{ label: 'Retour', style: 'primary', onClick: () => openAppSettings('data') }]);
+      return;
+    }
+    const labels = DATA_SCOPES.filter(s => scopes.indexOf(s.key) >= 0).map(s => '· ' + s.label).join('\n');
+    openModal(
+      'Effacer ces données ?',
+      'Seront supprimés définitivement :\n' + labels + '\n\nLe reste sera conservé. L\'application va redémarrer.',
+      [
+        { label: 'Effacer', style: 'primary', onClick: () => clearSelectedData(scopes) },
+        { label: 'Annuler', style: 'secondary', onClick: () => openAppSettings('data') }
+      ]
+    );
+  }
+
+  function openAppSettings(initialTab){
+    clearModalDynamic();
+    modalTitle.textContent = 'Réglages';
+    modalMessage.textContent = '';
+    modalMessage.hidden = true;
+    modalActions.innerHTML = '';
+
+    const wrap = document.createElement('div');
+    wrap.className = 'modal-dynamic';
+
+    const tabs = document.createElement('div');
+    tabs.className = 'panel-tabs';
+    tabs.setAttribute('role', 'tablist');
+
+    const sections = {
+      faq: { label: 'FAQ', html: buildFaqHtml() },
+      roster: { label: 'Joueurs', html: buildRosterHtml() },
+      contact: { label: 'Contact', html: buildContactHtml() },
+      version: { label: 'Version', html: buildVersionHtml() },
+      data: { label: 'Données', html: buildDataHtml() }
+    };
+    const bodies = {};
+
+    Object.keys(sections).forEach(key => {
+      const tab = document.createElement('button');
+      tab.type = 'button';
+      tab.className = 'panel-tab';
+      tab.dataset.panel = key;
+      tab.setAttribute('role', 'tab');
+      tab.textContent = sections[key].label;
+      tabs.appendChild(tab);
+
+      const body = document.createElement('div');
+      body.className = 'panel-section';
+      body.dataset.panel = key;
+      body.innerHTML = sections[key].html;
+      bodies[key] = body;
+    });
+
+    function showPanel(key){
+      tabs.querySelectorAll('.panel-tab').forEach(t => {
+        const on = t.dataset.panel === key;
+        t.classList.toggle('active', on);
+        t.setAttribute('aria-selected', String(on));
+      });
+      Object.keys(bodies).forEach(k => { bodies[k].hidden = (k !== key); });
+    }
+    tabs.querySelectorAll('.panel-tab').forEach(t => {
+      t.addEventListener('click', () => showPanel(t.dataset.panel));
+    });
+
+    wrap.appendChild(tabs);
+    Object.keys(bodies).forEach(k => wrap.appendChild(bodies[k]));
+    showPanel(initialTab && sections[initialTab] ? initialTab : 'faq');
+
+    modalActions.parentNode.insertBefore(wrap, modalActions);
+
+    const clearBtn = wrap.querySelector('#clear-data-btn');
+    if(clearBtn) clearBtn.addEventListener('click', confirmClearAppData);
+
+    const addBtn = wrap.querySelector('#roster-add-btn');
+    if(addBtn) addBtn.addEventListener('click', () => openRosterEditor(null));
+    wrap.querySelectorAll('[data-roster-edit]').forEach(b => {
+      b.addEventListener('click', () => openRosterEditor(b.dataset.rosterEdit));
+    });
+
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'primary';
+    close.textContent = 'Fermer';
+    close.addEventListener('click', closeModal);
+    modalActions.appendChild(close);
+
+    modalOverlay.hidden = false;
+  }
+
+  appSettingsBtn.addEventListener('click', () => openAppSettings('faq'));
 
   // ---------- Theme toggle (clair/sombre + thème de couleur) ----------
   const themeToggleBtn = document.getElementById('theme-toggle-btn');
@@ -2377,17 +3236,28 @@
   const modalMessage = document.getElementById('modal-message');
   const modalActions = document.getElementById('modal-actions');
 
+  // Vide le contenu variable : sans cela, rouvrir un panneau depuis un autre
+  // (réglages → éditeur → réglages) empilait les blocs au lieu de les remplacer.
+  function clearModalDynamic(){
+    modalActions.parentNode.querySelectorAll('.modal-dynamic').forEach(el => el.remove());
+    modalActions.innerHTML = '';
+  }
+
   function closeModal(){
     modalOverlay.hidden = true;
     modalActions.innerHTML = '';
+    modalMessage.hidden = false;   // certains panneaux le masquent : on rétablit l'état
+
     // Retire tout contenu dynamique inséré entre le message et les boutons (ex. liste d'abandons).
     const box = modalActions.parentNode;
     box.querySelectorAll('.modal-dynamic').forEach(el => el.remove());
   }
 
   function openModal(title, message, buttons){
+    clearModalDynamic();
     modalTitle.textContent = title;
     modalMessage.textContent = message;
+    modalMessage.hidden = false;
     modalActions.innerHTML = '';
     buttons.forEach(b => {
       const btn = document.createElement('button');
@@ -2543,13 +3413,31 @@
   // dans un navigateur (ou hébergé ailleurs), la sauvegarde fonctionne normalement.
   const STORAGE_KEY = 'mtg-compagnon-state-v1';
 
+  // L'écriture disque est temporisée : lors d'une rafale de clics, une seule
+  // sauvegarde a lieu. L'état mémoire, lui, est toujours à jour.
+  let persistTimer = null;
+  let persistDisabled = false;   // vrai pendant l'effacement des données
   function persistState(){
+    if(persistDisabled || persistTimer) return;
+    persistTimer = setTimeout(() => { persistTimer = null; persistNow(); }, 200);
+  }
+  // Écriture immédiate : utilisée quand la page peut disparaître.
+  function flushPersist(){
+    if(persistTimer){ clearTimeout(persistTimer); persistTimer = null; }
+    persistNow();
+  }
+  function persistNow(){
+    if(persistDisabled) return;
     try{
       const payload = {
         players: state.players,
         draft: state.draft,
         tables: state.tables,
+        roster: roster,
+        rosterSeq: rosterSeq,
+        tournamentHistory: tournamentHistory,
         tournament: {
+          bo: tournament.bo,
           rounds: tournament.rounds,
           droppedPlayers: [...tournament.droppedPlayers],
           timerEndTime: roundTimer.endTime,
@@ -2565,9 +3453,13 @@
           playerCount: life.playerCount,
           resources: life.resources,
           resOpen: life.resOpen,
+          commander: life.commander,
+          commanderMode: life.commanderMode,
           useRoster: life.useRoster,
           customTotal: life.customTotal,
-          blockThemes: life.blockThemes
+          blockThemes: life.blockThemes,
+          monarch: life.monarch,
+          dayNight: life.dayNight
         },
         prefs: {
           themeMode: themeMode,
@@ -2579,6 +3471,13 @@
       // Stockage indisponible : on continue simplement en mémoire pour cette session.
     }
   }
+
+  // Toute disparition possible de la page force l'écriture en attente.
+  window.addEventListener('pagehide', flushPersist);
+  window.addEventListener('beforeunload', flushPersist);
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState === 'hidden') flushPersist();
+  });
 
   function restoreStateIfAvailable(){
     let saved = null;
@@ -2593,7 +3492,21 @@
     if(Array.isArray(saved.players)) state.players = saved.players;
     if(saved.draft) state.draft = saved.draft;
     if(saved.tables) state.tables = saved.tables;
+    if(Array.isArray(saved.roster)){
+      roster.length = 0;
+      saved.roster.forEach(p => {
+        if(p && typeof p.name === 'string'){
+          roster.push({ id: p.id || ('p' + (rosterSeq++)), name: p.name, theme: p.theme || null });
+        }
+      });
+    }
+    if(Number.isInteger(saved.rosterSeq)) rosterSeq = Math.max(rosterSeq, saved.rosterSeq);
+    if(Array.isArray(saved.tournamentHistory)){
+      tournamentHistory.length = 0;
+      saved.tournamentHistory.forEach(h => tournamentHistory.push(h));
+    }
     if(saved.tournament){
+      if([1,3,5].indexOf(saved.tournament.bo) >= 0) tournament.bo = saved.tournament.bo;
       if(Array.isArray(saved.tournament.rounds)) tournament.rounds = saved.tournament.rounds;
       if(Array.isArray(saved.tournament.droppedPlayers)) tournament.droppedPlayers = new Set(saved.tournament.droppedPlayers);
       if(typeof saved.tournament.timerEndTime === 'number') roundTimer.endTime = saved.tournament.timerEndTime;
@@ -2604,6 +3517,7 @@
         if(Number.isInteger(num) && num > maxId) maxId = num;
       }));
       matchIdCounter = maxId + 1;
+      invalidateStandings();
     }
     if(saved.prefs){
       if(saved.prefs.themeMode === 'auto' || saved.prefs.themeMode === 'light' || saved.prefs.themeMode === 'dark'){
@@ -2623,6 +3537,12 @@
       if(Number.isInteger(saved.life.playerCount) && saved.life.playerCount >= 1 && saved.life.playerCount <= MAX_PLAYERS){
         life.playerCount = saved.life.playerCount;
       }
+      life.commander = !!saved.life.commander;
+      if(saved.life.commanderMode === 'commander' || saved.life.commanderMode === 'duel'){
+        life.commanderMode = saved.life.commanderMode;
+      } else if(life.commander){
+        life.commanderMode = 'commander';   // sauvegardes antérieures au choix du mode
+      }
       life.useRoster = !!saved.life.useRoster;
       life.customTotal = !!saved.life.customTotal;
       if(Array.isArray(saved.life.blockThemes)) life.blockThemes = saved.life.blockThemes;
@@ -2630,6 +3550,8 @@
       // Compatibilité : les versions précédentes enregistraient un seul booléen global.
       if(Array.isArray(saved.life.resOpen)) life.resOpen = saved.life.resOpen.map(v => !!v);
       else if(typeof saved.life.resOpen === 'boolean') life.resOpen = [saved.life.resOpen, saved.life.resOpen];
+      if(Number.isInteger(saved.life.monarch)) life.monarch = saved.life.monarch;
+      if(saved.life.dayNight === 'day' || saved.life.dayNight === 'night') life.dayNight = saved.life.dayNight;
     }
   }
 
@@ -2669,6 +3591,13 @@
         chip.className = 'chip';
 
         const span = document.createElement('span');
+        if(isRegistered(name)){
+          const star = document.createElement('span');
+          star.className = 'roster-star';
+          star.textContent = '★';
+          star.title = 'Joueur enregistré';
+          chip.appendChild(star);
+        }
         span.textContent = name;
 
         const removeBtn = document.createElement('button');
@@ -2692,6 +3621,8 @@
       }
     });
     refreshPlayerPlaceholder();
+    renderRosterQuickPicks();
+    invalidateStandings();   // le classement dépend de la liste des joueurs
     persistState();
   }
 
@@ -2955,8 +3886,12 @@
     useRoster: false,      // afficher la sélection des joueurs enregistrés
     customTotal: false,    // total de points de vie libre plutôt qu'un préréglage
     blockThemes: [null, null],  // thème de couleur propre à chaque joueur en plein écran
-    resources: [],              // { tax, energy, mana:{W,U,B,R,G,C} } par joueur
-    resOpen: []                 // tiroir de ressources déplié, par joueur
+    commander: false,           // partie Commander → suivi de la taxe de commandant
+    commanderMode: null,        // 'commander' (multi, 40 PV, dégâts) ou 'duel' (20 PV, sans dégâts)
+    resources: [],              // { tax, energy, mana:{…}, cmd:{…} } par joueur
+    resOpen: [],                // tiroir de ressources déplié, par joueur
+    monarch: null,              // slot du joueur monarque, ou null
+    dayNight: null              // null (désactivé), 'day' ou 'night'
   };
   const MAX_PLAYERS = 4;
 
@@ -2973,25 +3908,55 @@
     { key:'G', label:'Vert',     varName:'--g' },
     { key:'C', label:'Incolore', varName:'--c' }
   ];
+  // Un commandant qui inflige 21 dégâts à un même joueur le fait perdre la partie.
+  const CMD_LETHAL = 21;
+  const CROWN_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" focusable="false" aria-hidden="true"><path d="M3 7l4.2 3.2L12 4l4.8 6.2L21 7l-1.7 10H4.7L3 7zm1.9 12h14.2v2H4.9v-2z"/></svg>';
   const ENERGY_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" focusable="false" aria-hidden="true"><path d="M13.5 2 4 14h6l-1.5 8L19 10h-6l.5-8z"/></svg>';
   const TAX_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" focusable="false" aria-hidden="true"><path d="M3 8l4 3 5-6 5 6 4-3-2 11H5L3 8zm2.8 13h12.4v2H5.8v-2z"/></svg>';
+
+  // Une sauvegarde ancienne ou incomplète peut contenir un objet ressource partiel.
+  // On le complète pour éviter toute lecture sur une propriété absente.
+  function normalizeResources(r){
+    const base = emptyResources();
+    if(!r || typeof r !== 'object') return base;
+    if(typeof r.tax === 'number') base.tax = r.tax;
+    if(typeof r.energy === 'number') base.energy = r.energy;
+    if(typeof r.storm === 'number') base.storm = r.storm;
+    if(r.mana && typeof r.mana === 'object'){
+      MANA_KEYS.forEach(m => {
+        if(typeof r.mana[m.key] === 'number') base.mana[m.key] = r.mana[m.key];
+      });
+    }
+    if(r.cmd && typeof r.cmd === 'object'){
+      Object.keys(r.cmd).forEach(k => {
+        if(typeof r.cmd[k] === 'number') base.cmd[k] = r.cmd[k];
+      });
+    }
+    return base;
+  }
 
   function emptyResources(){
     const mana = {};
     MANA_KEYS.forEach(m => { mana[m.key] = 0; });
-    return { tax: 0, energy: 0, mana: mana };
+    // cmd : dégâts de commandant reçus, indexés par le numéro du joueur d'origine.
+    return { tax: 0, energy: 0, storm: 0, mana: mana, cmd: {} };
   }
   // Lecture/écriture par clé texte : 'tax', 'energy' ou 'mana:W'.
   function getRes(slot, key){
     const r = life.resources[slot - 1];
     if(!r) return 0;
     if(key.indexOf('mana:') === 0) return r.mana[key.slice(5)] || 0;
+    if(key.indexOf('cmd:') === 0) return (r.cmd && r.cmd[key.slice(4)]) || 0;
     return r[key] || 0;
   }
   function setRes(slot, key, value){
     const r = life.resources[slot - 1];
     if(!r) return;
     if(key.indexOf('mana:') === 0) r.mana[key.slice(5)] = value;
+    else if(key.indexOf('cmd:') === 0){
+      if(!r.cmd) r.cmd = {};
+      r.cmd[key.slice(4)] = value;
+    }
     else r[key] = value;
   }
   const HISTORY_MAX = 200;   // plafond du nombre d'entrées d'historique conservées
@@ -3005,6 +3970,7 @@
   const lifeCustomTotalRow = document.getElementById('life-custom-total-row');
   const lifeCustomTotalInput = document.getElementById('life-custom-total');
   const lifeCountPicker = document.getElementById('life-count-picker');
+  const lifeCommander = document.getElementById('life-commander');
   const lifeBlocksCol = document.getElementById('life-blocks-col');
   const fsZoneTop = document.getElementById('fs-zone-top');
   const fsZoneBottom = document.getElementById('fs-zone-bottom');
@@ -3026,6 +3992,14 @@
     '12': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" fill="currentColor" focusable="false" aria-hidden="true"><path d="M512,198.88c-.36,0-.71-.04-1.06-.12l-222.73-48.7c-1.79-.39-3.22-1.72-3.73-3.48-.52-1.75-.03-3.65,1.26-4.94l50.06-50.06c.94-.94,2.21-1.46,3.53-1.46h345.36c1.33,0,2.6.53,3.53,1.46l50.06,50.06c1.29,1.29,1.78,3.19,1.26,4.94-.51,1.75-1.94,3.09-3.73,3.48l-222.74,48.71c-.35.08-.7.12-1.06.12ZM299.26,142.24l212.73,46.52,212.74-46.52-42.13-42.13h-341.22l-42.13,42.13Z"/><path d="M684.68,933.89h-345.36c-2.29,0-4.3-1.56-4.85-3.79l-78.36-313.3c-.6-2.4.65-4.88,2.95-5.83l251.05-103.59c1.21-.5,2.6-.5,3.81,0l251.1,103.59c2.29.95,3.54,3.43,2.95,5.83l-78.43,313.3c-.56,2.23-2.56,3.79-4.85,3.79ZM343.23,923.89h337.55l76.44-305.32-245.21-101.16-245.15,101.16,76.37,305.32Z"/><path d="M260.96,620.59c-1.71,0-3.36-.88-4.29-2.42L90.82,341.89c-1.18-1.97-.87-4.49.75-6.11l194.15-194.14c1.2-1.2,2.93-1.72,4.6-1.35l222.73,48.7c2.29.5,3.93,2.53,3.93,4.88v318.13c0,2.02-1.21,3.85-3.09,4.62l-251.04,103.59c-.62.26-1.26.38-1.9.38ZM101.41,340.09l161.62,269.24,243.98-100.67V197.9s-216.14-47.26-216.14-47.26l-189.46,189.45Z"/><path d="M763.11,620.59c-.63,0-1.29-.12-1.9-.38l-251.1-103.59c-1.87-.77-3.1-2.6-3.1-4.62V193.88c0-2.35,1.64-4.38,3.93-4.88l222.73-48.7c1.65-.37,3.4.15,4.6,1.35l194.15,194.14c1.62,1.62,1.93,4.14.75,6.11l-165.78,276.27c-.93,1.55-2.58,2.43-4.29,2.43ZM517,508.66l244.04,100.67,161.55-269.24-189.46-189.45-216.13,47.26v310.76Z"/><path d="M339.32,933.89c-1.29,0-2.57-.5-3.53-1.46l-180.77-180.76c-.47-.47-.83-1.01-1.08-1.62l-63.44-153.22c-.25-.6-.38-1.26-.38-1.91v-255.59c0-2.25,1.49-4.22,3.66-4.82,2.16-.62,4.45.32,5.62,2.24l164.35,273.04c.25.42.44.88.56,1.36l79.86,316.53c.56,2.18-.42,4.46-2.37,5.57-.77.44-1.62.65-2.47.65ZM162.79,745.3l167.25,167.24-75.25-298.23L100.11,357.32v236.6l62.68,151.38Z"/><path d="M684.68,933.89c-.85,0-1.7-.21-2.47-.65-1.95-1.1-2.93-3.39-2.37-5.57l79.85-316.53c.12-.48.3-.94.56-1.36l164.36-273.04c1.16-1.92,3.46-2.86,5.62-2.24,2.17.6,3.66,2.57,3.66,4.82v255.84c0,.65-.13,1.31-.38,1.91l-63.33,152.85c-.25.61-.61,1.16-1.08,1.62l-180.88,180.88c-.97.97-2.25,1.46-3.53,1.46ZM769.2,614.3l-75.24,298.23,167.35-167.35,62.57-151.02v-236.84l-154.69,256.99Z"/><path d="M460.59,812.23v-155.75c-1.68,1.96-4.25,3.8-7.72,5.51-3.47,1.72-7.09,3.08-10.87,4.1-3.78,1.02-6.97,1.52-9.56,1.52v-17.22c3.71-.56,7.88-1.77,12.5-3.62,4.62-1.85,8.94-4.39,12.97-7.61,4.03-3.22,7.02-7.14,8.98-11.76h15.33v184.84h-21.63Z"/><path d="M527.28,812.23v-10.29c0-7.07.58-13.51,1.73-19.32,1.16-5.81,3.11-11.87,5.88-18.17,2.77-6.3,6.53-13.65,11.29-22.05l17.01-30.14c1.61-2.8,2.9-5.72,3.89-8.77.98-3.05,1.77-6.18,2.36-9.4.59-3.22,1-6.46,1.21-9.71s.31-6.49.31-9.71c0-8.89-.35-15.54-1.05-19.95-.7-4.41-1.87-7.33-3.52-8.77-1.65-1.43-3.9-2.15-6.77-2.15s-5.32.75-7.14,2.26c-1.82,1.51-3.15,4.59-3.99,9.24-.84,4.66-1.26,11.68-1.26,21.06v24.05h-21.21v-13.02c0-13.3.7-24.56,2.1-33.76,1.4-9.21,4.58-16.21,9.56-21,4.97-4.79,12.81-7.19,23.53-7.19,8.19,0,14.47,2.19,18.85,6.56,4.38,4.38,7.39,10.4,9.03,18.06,1.64,7.67,2.47,16.47,2.47,26.41,0,6.09-.39,11.76-1.16,17.01-.77,5.25-2,10.29-3.68,15.12-1.68,4.83-3.92,9.77-6.72,14.81l-16.8,30.25c-3.92,7-6.92,12.71-8.98,17.12-2.07,4.41-3.48,8.45-4.25,12.13-.77,3.68-1.16,8.03-1.16,13.08h39.91v16.28h-61.44Z"/></svg>',
     '20': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" fill="currentColor" focusable="false" aria-hidden="true"><path d="M769.66,432.76H254.35c-1.84,0-3.52-1-4.39-2.61-.87-1.61-.8-3.57.2-5.11L507.81,27.9c1.86-2.84,6.54-2.84,8.4,0l257.66,397.14c1,1.54,1.06,3.5.19,5.11-.88,1.61-2.56,2.61-4.39,2.61ZM263.55,422.76h496.92L512.01,39.8l-248.46,382.96Z"/><path d="M512.01,810.62c-.2,0-.4,0-.6-.04l-416.9-50.39c-1.61-.19-3.02-1.15-3.8-2.57-.77-1.42-.81-3.12-.1-4.58l159.24-327.47c.77-1.6,2.35-2.67,4.13-2.8,1.79-.09,3.49.7,4.49,2.17l257.66,377.86c1.1,1.62,1.16,3.73.14,5.41-.91,1.5-2.54,2.4-4.27,2.4ZM102.68,751.11l398.99,48.22-246.59-361.63-152.4,313.41Z"/><path d="M95.11,760.23c-.37,0-.74-.04-1.12-.13-2.26-.53-3.88-2.54-3.88-4.87v-485.1c0-2.02,1.21-3.84,3.08-4.61,1.86-.78,3.99-.36,5.44,1.06l159.24,157.63c1.52,1.51,1.91,3.81.98,5.74l-159.24,327.47c-.85,1.75-2.61,2.81-4.49,2.81ZM100.11,282.11v451.4l148.18-304.72-148.18-146.68Z"/><path d="M512.01,810.62c-1.73,0-3.36-.9-4.27-2.4-1.02-1.68-.97-3.79.14-5.41l257.66-377.86c1-1.47,2.67-2.31,4.49-2.17,1.78.13,3.36,1.2,4.13,2.8l159.23,327.47c.71,1.45.67,3.16-.1,4.58-.78,1.42-2.19,2.37-3.8,2.57l-416.89,50.39c-.19.03-.4.04-.59.04ZM768.94,437.7l-246.59,361.63,398.98-48.22-152.39-313.41Z"/><path d="M928.89,760.23c-1.88,0-3.64-1.06-4.49-2.81l-159.23-327.47c-.94-1.93-.55-4.23.98-5.74l159.23-157.63c1.45-1.42,3.59-1.81,5.44-1.06,1.86.78,3.08,2.6,3.08,4.61v485.1c0,2.33-1.61,4.34-3.88,4.87-.37.09-.75.13-1.12.13ZM775.72,428.79l148.17,304.72v-451.4l-148.17,146.68Z"/><path d="M254.35,432.76c-1.31,0-2.58-.51-3.52-1.44l-159.24-157.63c-1.11-1.1-1.64-2.65-1.44-4.2.21-1.55,1.11-2.91,2.47-3.69L509.52,26.29c2.01-1.16,4.52-.78,6.12.9,1.58,1.67,1.82,4.22.57,6.16l-257.66,397.14c-.82,1.26-2.17,2.09-3.66,2.25-.18.02-.36.03-.54.03ZM103.29,271.19l150.21,148.7L496.54,45.27,103.29,271.19Z"/><path d="M769.66,432.76c-.18,0-.36,0-.54-.03-1.49-.16-2.84-.99-3.66-2.25L507.81,33.34c-1.25-1.93-1.01-4.48.57-6.16,1.59-1.68,4.11-2.06,6.12-.9l416.89,239.5c1.36.78,2.27,2.14,2.47,3.69.19,1.55-.33,3.1-1.44,4.2l-159.23,157.63c-.94.93-2.21,1.44-3.51,1.44ZM527.47,45.27l243.04,374.61,150.2-148.7L527.47,45.27Z"/><path d="M512.01,998.38c-.87,0-1.74-.22-2.51-.67-1.54-.9-2.49-2.54-2.49-4.32v-187.77c0-2.53,1.88-4.66,4.4-4.96l416.89-50.39c2.29-.35,4.6,1.14,5.34,3.39.75,2.26-.19,4.73-2.26,5.92l-416.89,238.16c-.77.44-1.62.65-2.48.65ZM517,810.05v174.73l387.93-221.62-387.93,46.89Z"/><path d="M512.01,998.38c-.86,0-1.71-.21-2.48-.65l-416.9-238.16c-2.07-1.18-3.02-3.66-2.27-5.92.74-2.25,2.98-3.74,5.34-3.39l416.9,50.39c2.52.3,4.4,2.43,4.4,4.96v187.77c0,1.79-.95,3.43-2.49,4.32-.77.45-1.64.67-2.51.67ZM119.07,763.16l387.94,221.62v-174.73l-387.94-46.89Z"/><path d="M428.55,387.91v-10.29c0-7.07.58-13.51,1.73-19.32,1.16-5.81,3.11-11.87,5.88-18.17,2.77-6.3,6.53-13.65,11.29-22.05l17.01-30.14c1.61-2.8,2.9-5.72,3.89-8.77.98-3.05,1.77-6.18,2.36-9.4.59-3.22,1-6.46,1.21-9.71s.31-6.49.31-9.71c0-8.89-.35-15.54-1.05-19.95-.7-4.41-1.87-7.33-3.52-8.77-1.65-1.43-3.9-2.15-6.77-2.15s-5.32.75-7.14,2.26c-1.82,1.51-3.15,4.59-3.99,9.24-.84,4.66-1.26,11.68-1.26,21.06v24.05h-21.21v-13.02c0-13.3.7-24.56,2.1-33.76,1.4-9.21,4.58-16.21,9.56-21,4.97-4.79,12.81-7.19,23.53-7.19,8.19,0,14.47,2.19,18.85,6.56,4.38,4.38,7.39,10.4,9.03,18.06,1.64,7.67,2.47,16.47,2.47,26.41,0,6.09-.39,11.76-1.16,17.01-.77,5.25-2,10.29-3.68,15.12-1.68,4.83-3.92,9.77-6.72,14.81l-16.8,30.25c-3.92,7-6.92,12.71-8.98,17.12-2.07,4.41-3.48,8.45-4.25,12.13-.77,3.68-1.16,8.03-1.16,13.08h39.91v16.28h-61.44Z"/><path d="M545.33,390.12c-10.08,0-17.4-2.07-21.95-6.2-4.55-4.13-7.42-10.08-8.61-17.85-1.19-7.77-1.79-17.12-1.79-28.04v-88.32c0-10.64.65-19.57,1.94-26.78,1.29-7.21,4.22-12.66,8.77-16.33,4.55-3.68,11.76-5.51,21.63-5.51s17.01,1.84,21.42,5.51c4.41,3.68,7.16,9.12,8.24,16.33,1.08,7.21,1.63,16.14,1.63,26.78v88.32c0,8.19-.25,15.51-.73,21.95-.49,6.44-1.68,11.9-3.57,16.38-1.89,4.48-4.97,7.89-9.24,10.24-4.27,2.35-10.19,3.52-17.75,3.52ZM545.12,371.74c2.03,0,3.75-.26,5.15-.79,1.4-.53,2.52-1.82,3.36-3.89.84-2.06,1.45-5.36,1.84-9.87.38-4.52.58-10.73.58-18.64v-90c0-9.38-.4-16.1-1.21-20.16-.81-4.06-2.01-6.58-3.62-7.56-1.61-.98-3.64-1.47-6.09-1.47s-4.43.47-6.14,1.42c-1.72.95-3.05,3.45-3.99,7.51-.95,4.06-1.42,10.78-1.42,20.16v90.11c0,7.98.19,14.21.58,18.69.38,4.48,1.03,7.76,1.94,9.82.91,2.07,2.1,3.36,3.57,3.89,1.47.52,3.29.79,5.46.79Z"/></svg>'
   };
+  const SUN_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" focusable="false" aria-hidden="true"><circle cx="12" cy="12" r="4.6"/><path d="M12 1.6v3.1M12 19.3v3.1M4.2 4.2l2.2 2.2M17.6 17.6l2.2 2.2M1.6 12h3.1M19.3 12h3.1M4.2 19.8l2.2-2.2M17.6 6.4l2.2-2.2" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" fill="none"/></svg>';
+  const MOON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" focusable="false" aria-hidden="true"><path d="M20.5 14.6A8.9 8.9 0 0 1 9.4 3.5a8.9 8.9 0 1 0 11.1 11.1z"/></svg>';
+
+  function injectMonarchIcon(){
+    const btn = document.getElementById('fs-monarch-btn');
+    if(btn && !btn.firstChild) btn.innerHTML = CROWN_SVG;
+  }
+
   function injectDiceIcons(){
     document.querySelectorAll('.dice-btn').forEach(btn => {
       const holder = btn.querySelector('.die-icon');
@@ -3061,9 +4035,25 @@
     }
 
     const nameEl = document.createElement('div');
-    nameEl.className = 'life-player-name life-name-display';
+    nameEl.className = 'life-player-name';
     nameEl.dataset.slot = slot;
+    if(fullscreen){
+      // Couronne du monarque : masquée tant que personne ne l'est.
+      const crown = document.createElement('span');
+      crown.className = 'monarch-crown';
+      crown.dataset.slot = slot;
+      crown.innerHTML = CROWN_SVG;
+      nameEl.appendChild(crown);
+    }
+    const nameText = document.createElement('span');
+    nameText.className = 'life-name-display';
+    nameText.dataset.slot = slot;
+    nameEl.appendChild(nameText);
     block.appendChild(nameEl);
+
+    // Zone centrale : les points de vie, centrés dans l'espace disponible.
+    const mid = document.createElement('div');
+    mid.className = 'life-mid';
 
     const controls = document.createElement('div');
     controls.className = 'life-controls';
@@ -3071,14 +4061,35 @@
       '<button class="life-btn life-delta-btn" data-slot="' + slot + '" data-delta="-1" type="button" aria-label="Retirer un point de vie au joueur ' + slot + '">−</button>' +
       '<div class="life-total life-total-display" data-slot="' + slot + '">20</div>' +
       '<button class="life-btn life-delta-btn" data-slot="' + slot + '" data-delta="1" type="button" aria-label="Ajouter un point de vie au joueur ' + slot + '">+</button>';
-    block.appendChild(controls);
+    mid.appendChild(controls);
 
     const adjust = document.createElement('div');
     adjust.className = 'life-adjust-row';
     adjust.innerHTML = [-3, -5, 3, 5].map(d =>
       '<button class="life-adjust-btn life-delta-btn" data-slot="' + slot + '" data-delta="' + d + '" type="button">' + (d > 0 ? '+' + d : d) + '</button>'
     ).join('');
-    block.appendChild(adjust);
+    mid.appendChild(adjust);
+    block.appendChild(mid);
+
+    // Zone basse : ligne de compteurs (taxe / poison) puis tiroir de ressources.
+    const bottom = document.createElement('div');
+    bottom.className = 'life-bottom';
+
+    // Les deux compteurs permanents se font face : la taxe de commandant d'un côté,
+    // les compteurs poison de l'autre. En partie non-Commander, seul le poison reste.
+    const counterRow = document.createElement('div');
+    counterRow.className = 'counter-row';
+    if(life.commander){
+      const tax = document.createElement('div');
+      tax.className = 'tax-row';
+      tax.title = 'Taxe de commandant (par pas de 2)';
+      tax.innerHTML =
+        '<span class="tax-icon" aria-hidden="true">' + TAX_SVG + '</span>' +
+        '<button class="poison-btn res-delta-btn" data-slot="' + slot + '" data-res="tax" data-delta="-2" type="button" aria-label="Réduire la taxe de commandant du joueur ' + slot + '">−</button>' +
+        '<span class="tax-count res-val" data-slot="' + slot + '" data-res="tax" title="Taxe de commandant">0</span>' +
+        '<button class="poison-btn res-delta-btn" data-slot="' + slot + '" data-res="tax" data-delta="2" type="button" aria-label="Augmenter la taxe de commandant du joueur ' + slot + '">+</button>';
+      counterRow.appendChild(tax);
+    }
 
     const poison = document.createElement('div');
     poison.className = 'poison-row';
@@ -3087,7 +4098,8 @@
       '<button class="poison-btn poison-delta-btn" data-slot="' + slot + '" data-delta="-1" type="button" aria-label="Retirer un compteur poison au joueur ' + slot + '">−</button>' +
       '<span class="poison-count poison-count-display" data-slot="' + slot + '" title="Compteurs poison">0</span>' +
       '<button class="poison-btn poison-delta-btn" data-slot="' + slot + '" data-delta="1" type="button" aria-label="Ajouter un compteur poison au joueur ' + slot + '">+</button>';
-    block.appendChild(poison);
+    counterRow.appendChild(poison);
+    bottom.appendChild(counterRow);
 
     // ---- Tiroir de ressources (replié par défaut) ----
     const drawer = document.createElement('div');
@@ -3117,9 +4129,24 @@
         '</span></div>';
     }
 
+    // Dégâts de commandant : une ligne par adversaire, en partie Commander seulement.
+    if(life.commander && life.commanderMode === 'commander' && life.playerCount > 1){
+      const cmdWrap = document.createElement('div');
+      cmdWrap.className = 'cmd-dmg';
+      let cmdHtml = '<p class="cmd-dmg-title">Dégâts de commandant reçus</p>';
+      for(let src = 1; src <= life.playerCount; src++){
+        if(src === slot) continue;
+        const from = life.names[src - 1] || ('Joueur ' + src);
+        cmdHtml += resItem('de ' + escapeHtml(from), 'cmd:' + src, 1,
+                           'Dégâts du commandant de ' + from + ' (21 = défaite)');
+      }
+      cmdWrap.innerHTML = cmdHtml;
+      panel.appendChild(cmdWrap);
+    }
+
     let html = '';
-    html += resItem('<span class="res-icon">' + TAX_SVG + '</span>Taxe', 'tax', 2, 'Taxe de commandant (par pas de 2)');
     html += resItem('<span class="res-icon">' + ENERGY_SVG + '</span>Énergie', 'energy', 1, 'Compteurs d\'énergie');
+    html += resItem('<span class="res-icon">' + ENERGY_SVG + '</span>Storm', 'storm', 1, 'Compteur de storm (sorts lancés ce tour)');
     MANA_KEYS.forEach(m => {
       html += resItem('<span class="res-pip" style="background:var(' + m.varName + ')"></span>' + m.key, 'mana:' + m.key, 1, 'Mana ' + m.label);
     });
@@ -3127,7 +4154,8 @@
     panel.appendChild(grid);
     drawer.appendChild(toggle);
     drawer.appendChild(panel);
-    block.appendChild(drawer);
+    bottom.appendChild(drawer);
+    block.appendChild(bottom);
 
     return block;
   }
@@ -3167,12 +4195,18 @@
     applyAllBlockThemes();
     // Les blocs viennent d'être recréés : on rétablit l'état du tiroir de chacun.
     for(let s = 1; s <= n; s++) syncResourcesDrawer(s);
+    applyMonarch();
+    applyDayNight();
   }
 
   // Un sélecteur par joueur, régénéré selon le nombre de joueurs choisi.
   function renderLifePlayerSelects(){
+    // Une étoile signale les joueurs présents dans le carnet enregistré.
     const options = '<option value="">— Choisir —</option>' +
-      state.players.map(name => '<option value="' + escapeHtml(name) + '">' + escapeHtml(name) + '</option>').join('');
+      state.players.map(name =>
+        '<option value="' + escapeHtml(name) + '">' +
+        (themeForPlayerName(name) !== null || isRegistered(name) ? '★ ' : '') +
+        escapeHtml(name) + '</option>').join('');
     const previous = [];
     lifePlayerSelects.querySelectorAll('select').forEach(s => previous.push(s.value));
 
@@ -3237,7 +4271,7 @@
     life.totals = fit(life.totals, life.startTotal);
     life.poison = fit(life.poison, 0);
     life.blockThemes = fit(life.blockThemes, null);
-    life.resources = fit(life.resources, null).map(r => r || emptyResources());
+    life.resources = fit(life.resources, null).map(normalizeResources);
     life.resOpen = fit(life.resOpen, false).map(v => !!v);
   }
 
@@ -3258,6 +4292,50 @@
     lifePlayerSelects.hidden = !lifeUseRoster.checked;
     if(lifeUseRoster.checked) renderLifePlayerSelects();
   }
+  // Les deux modes suivent la taxe de commandant, mais diffèrent sur le total de
+  // départ et sur les dégâts de commandant (sans objet en duel, où il n'y a qu'un
+  // seul adversaire et où le format joue traditionnellement à 20 points de vie).
+  const COMMANDER_MODES = {
+    commander: { label: 'Commander',      total: 40, damage: true  },
+    duel:      { label: 'Duel Commander', total: 20, damage: false }
+  };
+
+  function setCommanderMode(mode){
+    const cfg = COMMANDER_MODES[mode];
+    if(!cfg) return;
+    life.commander = true;
+    life.commanderMode = mode;
+    // Total de départ par défaut du format — l'utilisateur reste libre de le changer.
+    life.customTotal = false;
+    life.startTotal = cfg.total;
+    lifeCommander.checked = true;
+    renderLifeBlocks();
+    syncLifeUiFromState();
+    persistState();
+  }
+
+  function clearCommanderMode(){
+    life.commander = false;
+    life.commanderMode = null;
+    lifeCommander.checked = false;
+    renderLifeBlocks();
+    syncLifeUiFromState();
+    persistState();
+  }
+
+  lifeCommander.addEventListener('change', () => {
+    if(!lifeCommander.checked){ clearCommanderMode(); return; }
+    openModal(
+      'Mode de jeu',
+      'Les deux modes suivent la taxe de commandant. Commander démarre à 40 points de vie et suit les dégâts de commandant ; Duel Commander démarre à 20 et ne les suit pas.',
+      [
+        { label: 'Commander (40 PV)', style: 'primary', onClick: () => setCommanderMode('commander') },
+        { label: 'Duel Commander (20 PV)', style: 'secondary', onClick: () => setCommanderMode('duel') },
+        { label: 'Annuler', style: 'secondary', onClick: clearCommanderMode }
+      ]
+    );
+  });
+
   lifeUseRoster.addEventListener('change', () => {
     life.useRoster = lifeUseRoster.checked;
     syncRosterVisibility();
@@ -3266,43 +4344,91 @@
 
   // Chaque joueur peut avoir plusieurs affichages simultanés (page normale + vue plein écran) :
   // on met à jour tous les éléments correspondant au slot via classe + data-slot plutôt qu'un id fixe.
+  // Les blocs joueur n'existent que dans deux conteneurs : on y limite les recherches
+  // plutôt que d'interroger tout le document à chaque mise à jour.
+  function lifeRoots(){
+    return [lifeBlocksCol, lifeFullscreenOverlay].filter(Boolean);
+  }
+  function eachInBlocks(selector, fn){
+    lifeRoots().forEach(root => root.querySelectorAll(selector).forEach(fn));
+  }
+
   function updateLifeBlockDom(slot){
     const name = life.names[slot - 1] || '';
     const total = life.totals[slot - 1];
     const poison = life.poison[slot - 1];
-    document.querySelectorAll('.life-name-display[data-slot="' + slot + '"]').forEach(el => {
+    eachInBlocks('.life-name-display[data-slot="' + slot + '"]', el => {
       el.textContent = name;
     });
-    document.querySelectorAll('.life-total-display[data-slot="' + slot + '"]').forEach(el => {
+    eachInBlocks('.life-total-display[data-slot="' + slot + '"]', el => {
       el.textContent = total;
       el.classList.toggle('negative', total <= 0);
     });
-    document.querySelectorAll('.poison-count-display[data-slot="' + slot + '"]').forEach(el => {
+    eachInBlocks('.poison-count-display[data-slot="' + slot + '"]', el => {
       el.textContent = poison;
       el.classList.toggle('lethal', poison >= POISON_LETHAL);
     });
-    document.querySelectorAll('.res-val[data-slot="' + slot + '"]').forEach(el => {
+    eachInBlocks('.res-val[data-slot="' + slot + '"]', el => {
       const v = getRes(slot, el.dataset.res);
       el.textContent = v;
       el.classList.toggle('active', v > 0);
+      // 21 dégâts d'un même commandant sont fatals.
+      el.classList.toggle('lethal', el.dataset.res.indexOf('cmd:') === 0 && v >= CMD_LETHAL);
     });
   }
 
   function pad2(n){ return String(n).padStart(2, '0'); }
 
   function logHistory(slot, kind, delta, value){
+    const last = life.history[life.history.length - 1];
+
+    // Pendant un appui maintenu, les incréments successifs sont regroupés en une
+    // seule ligne cumulée : « −10 PV » plutôt que dix fois « −1 PV ».
+    if(holdState.session && last && last.session === holdState.session &&
+       last.slot === slot && last.kind === kind){
+      last.delta += delta;
+      last.value = value;
+      updateFirstHistoryEntry(last);
+      return;
+    }
+
     const now = new Date();
     life.history.push({
       time: pad2(now.getHours()) + ':' + pad2(now.getMinutes()),
-      slot, kind, delta, value
+      slot, kind, delta, value,
+      session: holdState.session || null
     });
     // Plafond : on ne conserve que les HISTORY_MAX dernières entrées (borne mémoire + DOM).
     if(life.history.length > HISTORY_MAX){
       life.history.splice(0, life.history.length - HISTORY_MAX);
     }
-    renderLifeHistory();
+    appendHistoryEntry(life.history[life.history.length - 1]);
   }
 
+  // Remplace la ligne la plus récente (en tête de liste) sans reconstruire le reste.
+  function updateFirstHistoryEntry(h){
+    if(!lifeHistoryList) return;
+    const first = lifeHistoryList.firstElementChild;
+    if(!first || first.classList.contains('life-history-empty')){
+      appendHistoryEntry(h);
+      return;
+    }
+    first.outerHTML = historyEntryHtml(h);
+  }
+
+  function historyEntryHtml(h){
+    const who = life.names[h.slot - 1] || ('Joueur ' + h.slot);
+    const sign = h.delta > 0 ? '+' : '';
+    const dirClass = h.delta > 0 ? 'up' : 'down';
+    const label = h.kind === 'poison' ? 'poison' : (h.kind === 'tax' ? 'taxe' : 'PV');
+    return '<div class="life-history-entry">' +
+      '<span class="life-history-time">' + h.time + '</span>' +
+      '<span class="life-history-who">' + escapeHtml(who) + '</span>' +
+      '<span class="life-history-change ' + dirClass + '">' + sign + h.delta + ' ' + label + ' → ' + h.value + '</span>' +
+      '</div>';
+  }
+
+  // Reconstruction complète : réservée au chargement, à la relance et au reset.
   function renderLifeHistory(){
     if(!lifeHistoryList) return;
     if(life.history.length === 0){
@@ -3310,17 +4436,19 @@
       return;
     }
     // Ordre anti-chronologique (le plus récent en haut).
-    lifeHistoryList.innerHTML = life.history.slice().reverse().map(h => {
-      const who = life.names[h.slot - 1] || ('Joueur ' + h.slot);
-      const sign = h.delta > 0 ? '+' : '';
-      const dirClass = h.delta > 0 ? 'up' : 'down';
-      const label = h.kind === 'poison' ? 'poison' : 'PV';
-      return '<div class="life-history-entry">' +
-        '<span class="life-history-time">' + h.time + '</span>' +
-        '<span class="life-history-who">' + escapeHtml(who) + '</span>' +
-        '<span class="life-history-change ' + dirClass + '">' + sign + h.delta + ' ' + label + ' → ' + h.value + '</span>' +
-        '</div>';
-    }).join('');
+    lifeHistoryList.innerHTML = life.history.slice().reverse().map(historyEntryHtml).join('');
+  }
+
+  // Ajout incrémental : on n'insère que la nouvelle ligne au lieu de tout reconstruire.
+  // Sans cela, le coût d'un simple clic croissait avec la taille de l'historique.
+  function appendHistoryEntry(h){
+    if(!lifeHistoryList) return;
+    const empty = lifeHistoryList.querySelector('.life-history-empty');
+    if(empty) lifeHistoryList.innerHTML = '';
+    lifeHistoryList.insertAdjacentHTML('afterbegin', historyEntryHtml(h));
+    while(lifeHistoryList.childElementCount > HISTORY_MAX){
+      lifeHistoryList.removeChild(lifeHistoryList.lastElementChild);
+    }
   }
 
   function changeLife(slot, delta){
@@ -3339,9 +4467,72 @@
     persistState();
   }
 
+  // ---------- Appui long : répétition accélérée ----------
+  // Passer de 40 à 12 points de vie demanderait 28 appuis : un maintien enchaîne
+  // les incréments, de plus en plus vite. Le clic qui suit le relâchement est
+  // ignoré pour ne pas ajouter une unité de trop.
+  const HOLD_START_MS = 450;   // délai avant le déclenchement
+  const HOLD_MIN_MS = 60;      // cadence maximale
+  // `session` identifie un maintien : il permet de regrouper ses incréments
+  // en une seule ligne d'historique.
+  const holdState = { timeout: null, interval: null, fired: false, delay: 0, session: null };
+  let holdSessionSeq = 0;
+
+  function stopHold(){
+    if(holdState.timeout){ clearTimeout(holdState.timeout); holdState.timeout = null; }
+    if(holdState.interval){ clearInterval(holdState.interval); holdState.interval = null; }
+    holdState.delay = 0;
+    holdState.session = null;   // le prochain appui ouvrira une nouvelle ligne
+  }
+
+  // Applique l'action d'un bouton de compteur, quel que soit son type.
+  function applyCounterButton(btn){
+    const slot = parseInt(btn.dataset.slot, 10);
+    const delta = parseInt(btn.dataset.delta, 10);
+    if(!slot || !Number.isInteger(delta)) return;
+    if(btn.classList.contains('life-delta-btn')) changeLife(slot, delta);
+    else if(btn.classList.contains('poison-delta-btn')) changePoison(slot, delta);
+    else if(btn.classList.contains('res-delta-btn')) changeResource(slot, btn.dataset.res, delta);
+  }
+
+  function startHold(btn){
+    stopHold();
+    holdState.fired = false;
+    holdState.delay = 220;
+    holdState.timeout = setTimeout(() => {
+      holdState.fired = true;
+      holdState.session = ++holdSessionSeq;
+      const tick = () => {
+        applyCounterButton(btn);
+        // Accélération progressive tant que le doigt reste posé.
+        const next = Math.max(HOLD_MIN_MS, Math.round(holdState.delay * 0.82));
+        if(next !== holdState.delay){
+          holdState.delay = next;
+          clearInterval(holdState.interval);
+          holdState.interval = setInterval(tick, holdState.delay);
+        }
+      };
+      applyCounterButton(btn);
+      holdState.interval = setInterval(tick, holdState.delay);
+    }, HOLD_START_MS);
+  }
+
+  function wireHoldRepeat(root){
+    root.addEventListener('pointerdown', e => {
+      const btn = e.target.closest('.life-delta-btn, .poison-delta-btn, .res-delta-btn');
+      if(!btn || e.button === 2) return;
+      startHold(btn);
+    });
+    ['pointerup','pointercancel','pointerleave'].forEach(ev => {
+      root.addEventListener(ev, () => stopHold());
+    });
+  }
+
   // Gestionnaires délégués : couvrent page normale ET plein écran (mêmes classes).
   // Scopé sur les deux conteneurs vie (au lieu de document) pour ne pas traiter tous les clics de l'app.
   function handleLifeDelegatedClick(e){
+    // Un maintien vient d'appliquer les incréments : on ignore le clic final.
+    if(holdState.fired){ holdState.fired = false; return; }
     const lifeBtn = e.target.closest('.life-delta-btn');
     if(lifeBtn){
       const slot = parseInt(lifeBtn.dataset.slot, 10);
@@ -3374,8 +4565,12 @@
   // Aucune ressource ne descend sous zéro.
   function changeResource(slot, key, delta){
     const next = Math.max(0, getRes(slot, key) + delta);
+    if(next === getRes(slot, key)) return;   // déjà à zéro : rien à journaliser
     setRes(slot, key, next);
     updateLifeBlockDom(slot);
+    // Seule la taxe de commandant est journalisée : elle sert d'arbitrage.
+    // Le mana et l'énergie varient trop souvent pour rester lisibles.
+    if(key === 'tax') logHistory(slot, 'tax', delta, next);
     persistState();
   }
 
@@ -3392,6 +4587,8 @@
   }
   lifePageLayout.addEventListener('click', handleLifeDelegatedClick);
   lifeFullscreenOverlay.addEventListener('click', handleLifeDelegatedClick);
+  wireHoldRepeat(lifePageLayout);
+  wireHoldRepeat(lifeFullscreenOverlay);
 
   // ---------- Dés et pièce (communs aux deux joueurs, dupliqués en plein écran) ----------
   // Un court délai animé précède l'affichage : sans lui, deux tirages identiques
@@ -3592,6 +4789,7 @@
     lifeCustomTotalRow.hidden = !life.customTotal;
     if(life.customTotal) lifeCustomTotalInput.value = life.startTotal;
 
+    lifeCommander.checked = !!life.commander;
     // Sélection des joueurs enregistrés : masquée par défaut.
     lifeUseRoster.checked = !!life.useRoster;
     lifePlayerSelects.hidden = !life.useRoster;
@@ -3648,6 +4846,11 @@
     }
 
     life.names = names;
+    // Un joueur du carnet retrouve automatiquement sa couleur.
+    names.forEach((n, i) => {
+      const theme = themeForPlayerName(n);
+      if(theme) life.blockThemes[i] = theme;
+    });
     life.totals = names.map(() => life.startTotal);
     life.poison = names.map(() => 0);
     life.resources = names.map(() => emptyResources());
@@ -3664,16 +4867,152 @@
     life.totals = life.totals.map(() => null);
     life.poison = life.poison.map(() => 0);
     life.resources = life.resources.map(() => emptyResources());
+    life.monarch = null;
+    life.dayNight = null;
+    applyMonarch();
+    applyDayNight();
     life.history = [];
     syncLifeUiFromState();
     persistState();
   });
 
   // ---------- Plein écran (vue partagée : joueur 2 en haut à l'envers, joueur 1 en bas) ----------
+  // ---------- Monarque (plein écran uniquement) ----------
+  // Tant que personne ne l'est, seule l'icône discrète du bandeau central est visible.
+  // Une fois attribué, une couronne précède chaque nom : pleine pour le monarque,
+  // estompée pour les autres, qui peuvent la toucher pour reprendre le titre.
+  function applyMonarch(){
+    const active = Number.isInteger(life.monarch) && life.monarch >= 1 && life.monarch <= life.playerCount;
+    lifeFullscreenOverlay.dataset.monarch = active ? 'on' : 'off';
+    lifeFullscreenOverlay.querySelectorAll('.monarch-crown').forEach(cr => {
+      const isKing = active && parseInt(cr.dataset.slot, 10) === life.monarch;
+      cr.classList.toggle('is-monarch', isKing);
+      cr.setAttribute('title', isKing ? 'Monarque' : 'Désigner ce joueur comme monarque');
+    });
+    const btn = document.getElementById('fs-monarch-btn');
+    if(btn){
+      btn.classList.toggle('is-active', active);
+      btn.setAttribute('aria-label', active
+        ? 'Monarque : ' + (life.names[life.monarch - 1] || 'joueur ' + life.monarch) + ' — modifier'
+        : 'Activer le monarque');
+    }
+  }
+
+  function setMonarch(slot){
+    life.monarch = Number.isInteger(slot) ? slot : null;
+    applyMonarch();
+    persistState();
+  }
+
+  function openMonarchPicker(){
+    const active = Number.isInteger(life.monarch);
+    const buttons = [];
+    for(let s = 1; s <= life.playerCount; s++){
+      const name = life.names[s - 1] || ('Joueur ' + s);
+      buttons.push({
+        label: (life.monarch === s ? '👑 ' : '') + name,
+        style: life.monarch === s ? 'primary' : 'secondary',
+        onClick: () => setMonarch(s)
+      });
+    }
+    if(active) buttons.push({ label: 'Retirer le monarque', style: 'secondary', onClick: () => setMonarch(null) });
+    buttons.push({ label: 'Annuler', style: 'secondary' });
+
+    openModal(
+      active ? 'Changer de monarque' : 'Activer le monarque',
+      active
+        ? 'Choisissez le nouveau monarque, ou retirez le titre.'
+        : 'Choisissez le joueur qui devient monarque. Une couronne apparaîtra devant chaque nom.',
+      buttons
+    );
+  }
+
+  document.getElementById('fs-monarch-btn').addEventListener('click', openMonarchPicker);
+
+  // Toucher la couronne d'un joueur lui transfère directement le titre.
+  lifeFullscreenOverlay.addEventListener('click', e => {
+    const crown = e.target.closest('.monarch-crown');
+    if(!crown) return;
+    const slot = parseInt(crown.dataset.slot, 10);
+    if(slot) setMonarch(life.monarch === slot ? null : slot);
+  });
+
+  // ---------- Maintien de l'écran allumé ----------
+  // L'application est faite pour rester posée au centre de la table : on empêche
+  // la mise en veille pendant une partie en plein écran. L'API n'est pas partout
+  // disponible et le verrou saute quand l'onglet passe en arrière-plan : on le
+  // redemande au retour.
+  let screenLock = null;
+  let screenLockWanted = false;   // le verrou est obtenu de façon asynchrone
+  function requestScreenLock(){
+    if(!('wakeLock' in navigator) || screenLock) return;
+    screenLockWanted = true;
+    navigator.wakeLock.request('screen').then(lock => {
+      // L'utilisateur a pu quitter le plein écran avant l'obtention du verrou :
+      // sans ce contrôle, il serait acquis puis jamais relâché.
+      if(!screenLockWanted){ try{ lock.release(); }catch(e){} return; }
+      screenLock = lock;
+      lock.addEventListener('release', () => { screenLock = null; });
+    }).catch(() => { /* refusé (batterie faible, onglet masqué…) : sans conséquence */ });
+  }
+  function releaseScreenLock(){
+    screenLockWanted = false;
+    if(!screenLock) return;
+    const lock = screenLock;
+    screenLock = null;
+    try{ lock.release(); }catch(e){ /* ignoré */ }
+  }
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState === 'visible' && !lifeFullscreenOverlay.hidden) requestScreenLock();
+  });
+
+  // ---------- Cycle jour / nuit (plein écran uniquement) ----------
+  // Désactivé par défaut : l'icône reste estompée. Le premier appui ouvre le choix
+  // jour ou nuit ; ensuite chaque appui bascule directement d'un état à l'autre.
+  function applyDayNight(){
+    const btn = document.getElementById('fs-daynight-btn');
+    if(!btn) return;
+    const state = life.dayNight;
+    btn.innerHTML = (state === 'day') ? SUN_SVG : MOON_SVG;
+    btn.classList.toggle('is-day', state === 'day');
+    btn.classList.toggle('is-night', state === 'night');
+    btn.setAttribute('aria-label',
+      state === 'day' ? 'Il fait jour — appuyer pour passer à la nuit'
+      : state === 'night' ? 'Il fait nuit — appuyer pour passer au jour'
+      : 'Activer le cycle jour/nuit');
+    btn.setAttribute('aria-pressed', String(state !== null));
+  }
+
+  function setDayNight(state){
+    life.dayNight = (state === 'day' || state === 'night') ? state : null;
+    applyDayNight();
+    persistState();
+  }
+
+  function openDayNightPicker(){
+    openModal(
+      'Cycle jour / nuit',
+      "Le cycle n'est pas encore actif. Choisissez l'état de départ : les appuis suivants basculeront directement de l'un à l'autre.",
+      [
+        { label: '☀ Il fait jour', style: 'primary', onClick: () => setDayNight('day') },
+        { label: '🌙 Il fait nuit', style: 'secondary', onClick: () => setDayNight('night') },
+        { label: 'Annuler', style: 'secondary' }
+      ]
+    );
+  }
+
+  document.getElementById('fs-daynight-btn').addEventListener('click', () => {
+    if(life.dayNight === null) openDayNightPicker();
+    else setDayNight(life.dayNight === 'day' ? 'night' : 'day');   // bascule directe
+  });
+
   function enterLifeFullscreen(){
     lifeFullscreenOverlay.hidden = false;
     for(let s = 1; s <= life.playerCount; s++) updateLifeBlockDom(s);
     applyAllBlockThemes();
+    applyMonarch();
+    applyDayNight();
+    requestScreenLock();
     updateRoundTimerDisplays();
     // La CSS de l'overlay couvre déjà tout l'écran ; la Fullscreen API est un bonus
     // (elle peut être refusée, ex. dans un iframe sans permission "fullscreen").
@@ -3687,6 +5026,7 @@
   }
 
   function exitLifeFullscreen(){
+    releaseScreenLock();
     if(document.fullscreenElement && document.exitFullscreen){
       document.exitFullscreen().catch(() => {});
     }
@@ -3700,6 +5040,11 @@
     life.poison = life.names.map(() => 0);
     life.resources = life.names.map(() => emptyResources());
     life.history = [];
+    // Une nouvelle partie repart sans monarque ni cycle jour/nuit.
+    life.monarch = null;
+    life.dayNight = null;
+    applyMonarch();
+    applyDayNight();
     for(let s = 1; s <= life.playerCount; s++) updateLifeBlockDom(s);
     renderLifeHistory();
     persistState();
@@ -3709,6 +5054,7 @@
   // À partir de trois joueurs, le choix des couleurs se fait ici plutôt que sur
   // chaque bloc, faute de place. Ce panneau accueillera d'autres options par la suite.
   function openLifeSettings(){
+    clearModalDynamic();
     modalTitle.textContent = 'Réglages de la partie';
     modalMessage.textContent = 'Attribuez une couleur à chaque joueur. « Thème de l\'application » reprend la couleur générale.';
     modalActions.innerHTML = '';
@@ -3846,6 +5192,28 @@
   // ---------- Tournament: BO3 match tracking ----------
   const matchDurationInput = document.getElementById('match-duration');
   const maxRoundsInput = document.getElementById('max-rounds');
+  const matchFormatPicker = document.getElementById('match-format-picker');
+  const matchFormatHint = document.getElementById('match-format-hint');
+
+  function syncMatchFormat(){
+    const cfg = MATCH_FORMATS[tournament.bo] || MATCH_FORMATS[3];
+    matchFormatPicker.querySelectorAll('.score-btn').forEach(b => {
+      b.classList.toggle('selected', parseInt(b.dataset.bo, 10) === tournament.bo);
+      // Le format ne peut plus changer une fois des scores enregistrés.
+      b.disabled = tournament.rounds.length > 0;
+    });
+    matchFormatHint.textContent = cfg.hint +
+      (tournament.rounds.length > 0 ? ' Le format est figé pendant le tournoi.' : '');
+  }
+
+  matchFormatPicker.querySelectorAll('.score-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if(tournament.rounds.length > 0) return;
+      tournament.bo = parseInt(btn.dataset.bo, 10);
+      syncMatchFormat();
+      persistState();
+    });
+  });
   const startTournamentBtn = document.getElementById('start-tournament-btn');
   const tournamentSetupError = document.getElementById('tournament-setup-error');
   const playersPanel = document.getElementById('tournament-players-panel');
@@ -3858,19 +5226,40 @@
   const standingsCard = document.getElementById('standings-card');
   const standingsContainer = document.getElementById('standings-container');
 
+  // Formats de match. Bo1 : une manche (courant en ligne et en multijoueur).
+  // Bo3 : standard des rondes suisses. Bo5 : phases finales et championnats.
+  const MATCH_FORMATS = {
+    1: { label: 'Bo1', wins: 1, hint: "Une seule manche par match : 1-0, 0-1, ou match nul si la manche n'est pas terminée." },
+    3: { label: 'Bo3', wins: 2, hint: "Deux manches gagnantes. C'est le format des rondes suisses en tournoi papier." },
+    5: { label: 'Bo5', wins: 3, hint: "Trois manches gagnantes. Réservé aux phases finales (top 8, championnats)." }
+  };
+
+  // Scores possibles d'un match, du plus favorable au joueur 1 au plus favorable au joueur 2.
+  // Ex. en Bo3 : 2-0, 2-1, puis les nuls 1-1 et 0-0, puis 1-2 et 0-2.
+  function scoreOptions(bo){
+    const wins = (MATCH_FORMATS[bo] || MATCH_FORMATS[3]).wins;
+    const victories = [], draws = [], defeats = [];
+    for(let loser = 0; loser < wins; loser++){
+      victories.push(wins + '-' + loser);
+      defeats.unshift(loser + '-' + wins);
+    }
+    // Égalités : autant de manches gagnées de part et d'autre, sans vainqueur.
+    for(let n = wins - 1; n >= 0; n--) draws.push(n + '-' + n);
+    return victories.concat(draws, defeats);
+  }
+
   function computeMatchPoints(score1, score2){
-    const key = score1 + '-' + score2;
-    if(['2-0','2-1'].includes(key)) return [3, 0];
-    if(['0-2','1-2'].includes(key)) return [0, 3];
-    if(['1-1','0-0'].includes(key)) return [1, 1];
-    return null;
+    if(score1 === score2) return [1, 1];        // égalité au temps
+    return score1 > score2 ? [3, 0] : [0, 3];   // toute victoire vaut 3 points
   }
 
   function createMatch(p1, p2){
     return { id: nextMatchId(), isBye: false, player1: p1, player2: p2, score1: null, score2: null, points1: null, points2: null, status: 'pending' };
   }
   function createByeMatch(p){
-    return { id: nextMatchId(), isBye: true, player1: p, player2: null, score1: 2, score2: 0, points1: 3, points2: 0, status: 'completed' };
+    // Un bye est enregistré comme une victoire nette au format en cours (2-0 en Bo3).
+    const wins = (MATCH_FORMATS[tournament.bo] || MATCH_FORMATS[3]).wins;
+    return { id: nextMatchId(), isBye: true, player1: p, player2: null, score1: wins, score2: 0, points1: 3, points2: 0, status: 'completed' };
   }
 
   // ---------- Départages officiels (MTR Appendix C / MTGO) ----------
@@ -3884,7 +5273,20 @@
   //  · OGW% = moyenne des GW% des adversaires, avec plancher 0.33333 par adversaire.
   const TB_FLOOR = 1/3;
 
+  // Le classement est identique tant que rien n'a changé : on le mémorise pour éviter
+  // de le recalculer plusieurs fois lors d'un même rendu (générer un round + afficher
+  // le tableau le demandaient deux fois de suite).
+  let standingsCache = null;
+  function invalidateStandings(){ standingsCache = null; }
+
   function computeStandings(){
+    if(standingsCache) return standingsCache;
+    const result = computeStandingsUncached();
+    standingsCache = result;
+    return result;
+  }
+
+  function computeStandingsUncached(){
     const map = {};
     state.players.forEach(name => {
       map[name] = {
@@ -3908,10 +5310,10 @@
           if(!p) return;
           // Classement : le bye vaut une victoire à 3 points.
           p.points += 3; p.wins += 1; p.matchesPlayed += 1;
-          p.gamesWon += 2;
+          p.gamesWon += m.score1;
           // Départages : le bye compte 2-0 en manches, mais est exclu du MW%
           // et n'ajoute aucun adversaire.
-          p.gamePoints += 6; p.gamesPlayed += 2;
+          p.gamePoints += m.score1 * 3; p.gamesPlayed += m.score1;
           p.byeCount += 1;
           return;
         }
@@ -4230,7 +5632,7 @@
     validateBtn.textContent = 'Valider le score';
     validateBtn.disabled = true;
 
-    ['2-0','2-1','1-1','0-0','1-2','0-2'].forEach(code => {
+    scoreOptions(tournament.bo).forEach(code => {
       const btn = document.createElement('button');
       btn.className = 'score-btn';
       btn.type = 'button';
@@ -4255,6 +5657,7 @@
       match.points1 = pts[0];
       match.points2 = pts[1];
       match.status = 'completed';
+      invalidateStandings();
       renderTournamentPage();
     });
     row.appendChild(validateBtn);
@@ -4264,8 +5667,10 @@
 
   // Génère effectivement le round suivant à partir des appariements.
   function advanceToNextRound(currentRoundNumber){
+    invalidateStandings();
     const matches = generatePairings();
     tournament.rounds.push({ number: currentRoundNumber + 1, matches });
+    invalidateStandings();
     resetRoundTimer();   // nouveau round → le chrono repart de zéro automatiquement
     renderTournamentPage();
   }
@@ -4274,6 +5679,7 @@
   // On présente la liste des joueurs actifs avec des cases à cocher ; ceux cochés sont marqués
   // « drop » et exclus des appariements du round à venir.
   function promptDropBeforeNextRound(currentRoundNumber){
+    clearModalDynamic();
     const active = state.players.filter(p => !tournament.droppedPlayers.has(p));
 
     modalTitle.textContent = 'Avant le round suivant';
@@ -4323,6 +5729,7 @@
       list.querySelectorAll('.drop-checkbox:checked').forEach(cb => {
         tournament.droppedPlayers.add(cb.value);
       });
+      invalidateStandings();
       cleanup();
       closeModal();
       // S'il ne reste plus assez de joueurs actifs, on ne génère pas et on rafraîchit l'affichage.
@@ -4401,6 +5808,7 @@
       roundsContainer.appendChild(note);
     }
 
+    syncMatchFormat();
     startTournamentBtn.hidden = tournament.rounds.length > 0;
     tournamentActions.hidden = tournament.rounds.length === 0;
     standingsCard.hidden = tournament.rounds.length === 0;
@@ -4427,6 +5835,7 @@
       dropBtn.textContent = '×';
       dropBtn.addEventListener('click', () => {
         tournament.droppedPlayers.add(name);
+        invalidateStandings();
         renderRounds();
       });
       chip.appendChild(span);
@@ -4447,6 +5856,7 @@
       restoreBtn.setAttribute('aria-label', 'Réintégrer ' + name);
       restoreBtn.addEventListener('click', () => {
         tournament.droppedPlayers.delete(name);
+        invalidateStandings();
         renderRounds();
       });
       row.appendChild(span);
@@ -4499,9 +5909,84 @@
     standingsContainer.appendChild(legend);
   }
 
+  // ---------- Historique des tournois ----------
+  // Un tournoi terminé est archivé sur l'appareil : date, format, nombre de rondes
+  // et podium. L'archivage se fait à la réinitialisation, pour ne rien perdre.
+  const HISTORY_TOURNAMENTS_MAX = 30;
+  const historyCard = document.getElementById('tournament-history-card');
+  const historyList = document.getElementById('tournament-history-list');
+  const archiveBtn = document.getElementById('archive-tournament-btn');
+
+  function archiveCurrentTournament(){
+    if(tournament.rounds.length === 0) return false;
+    const played = tournament.rounds.reduce(
+      (n, r) => n + r.matches.filter(m => m.status === 'completed' && !m.isBye).length, 0);
+    if(played === 0) return false;   // rien à archiver
+
+    const standings = computeStandings();
+    const now = new Date();
+    tournamentHistory.unshift({
+      date: now.toLocaleDateString('fr-FR') + ' ' + pad2(now.getHours()) + ':' + pad2(now.getMinutes()),
+      bo: tournament.bo,
+      rounds: tournament.rounds.length,
+      players: standings.length,
+      podium: standings.slice(0, 3).map(s => ({ name: s.name, points: s.points }))
+    });
+    if(tournamentHistory.length > HISTORY_TOURNAMENTS_MAX){
+      tournamentHistory.length = HISTORY_TOURNAMENTS_MAX;
+    }
+    renderTournamentHistory();
+    persistState();
+    return true;
+  }
+
+  function renderTournamentHistory(){
+    if(!historyList) return;
+    historyCard.hidden = false;
+    archiveBtn.hidden = tournament.rounds.length === 0;
+
+    if(tournamentHistory.length === 0){
+      historyList.innerHTML = '<p class="history-empty">Aucun tournoi archivé pour l\'instant. Les tournois sont enregistrés lorsque vous les réinitialisez.</p>';
+      return;
+    }
+    const medals = ['1', '2', '3'];
+    historyList.innerHTML = tournamentHistory.map(h => {
+      const podium = h.podium.length
+        ? h.podium.map((p, i) =>
+            '<span><em class="history-rank">' + medals[i] + '.</em>' + escapeHtml(p.name) +
+            ' <span class="history-meta">' + p.points + ' pts</span></span>').join('')
+        : '<span class="history-meta">Aucun classement enregistré</span>';
+      return '<div class="history-entry">' +
+        '<div class="history-head">' +
+          '<span class="history-date">' + escapeHtml(h.date) + '</span>' +
+          '<span class="history-meta">Bo' + h.bo + ' · ' + h.rounds + ' ronde' + (h.rounds > 1 ? 's' : '') +
+            ' · ' + h.players + ' joueur' + (h.players > 1 ? 's' : '') + '</span>' +
+        '</div>' +
+        '<div class="history-podium">' + podium + '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  archiveBtn.addEventListener('click', () => {
+    if(archiveCurrentTournament()) openModal('Tournoi archivé', 'Le tournoi en cours a été ajouté à la liste des tournois précédents.', [{ label: 'Fermer', style: 'primary' }]);
+    else openModal('Rien à archiver', 'Aucun match n\'a encore été validé dans ce tournoi.', [{ label: 'Fermer', style: 'primary' }]);
+  });
+
+  document.getElementById('clear-history-btn').addEventListener('click', () => {
+    openModal('Vider l\'historique',
+      'Tous les tournois archivés seront supprimés. Le tournoi en cours n\'est pas affecté.',
+      [
+        { label: 'Vider l\'historique', style: 'primary', onClick: () => {
+            tournamentHistory.length = 0; renderTournamentHistory(); persistState();
+          } },
+        { label: 'Annuler', style: 'secondary' }
+      ]);
+  });
+
   function renderTournamentPage(){
     renderTournamentDraftSummary();
     renderRounds();
+    renderTournamentHistory();
   }
 
   startTournamentBtn.addEventListener('click', () => {
@@ -4523,15 +6008,20 @@
         return;
       }
     }
+    invalidateStandings();
     tournament.rounds = [{ number: 1, matches: generatePairings() }];
+    invalidateStandings();
     resetRoundTimer();   // nouveau tournoi → chrono remis à zéro
     renderTournamentPage();
   });
 
   resetTournamentBtn.addEventListener('click', () => {
+    archiveCurrentTournament();   // on conserve une trace avant d'effacer
     resetRoundTimer();
     tournament.rounds = [];
     tournament.droppedPlayers.clear();
+    invalidateStandings();
+    syncMatchFormat();
     renderTournamentPage();
   });
 
@@ -4541,10 +6031,15 @@
   renderPlayers();
   if(state.draft) renderBoosterResults();
   if(state.tables) renderTableResults();
+  const footerVersion = document.getElementById('footer-version');
+  if(footerVersion) footerVersion.textContent = 'v' + APP_VERSION;
   injectDiceIcons();
+  injectMonarchIcon();
+  applyDayNight();   // pose l'icône lune estompée dès le départ
   resizeLifeArrays(life.playerCount);
   renderLifeBlocks();
   renderLifePlayerSelects();
+  renderRosterQuickPicks();
   syncLifeUiFromState();
   // Si un tournoi était en cours, on rend sa page dès l'init (cohérence avec la page Vie),
   // et on reprend le chrono du round s'il tournait encore (endTime persisté).
