@@ -3364,15 +3364,30 @@
   const modalMessage = document.getElementById('modal-message');
   const modalActions = document.getElementById('modal-actions');
 
+  // Quand le navigateur est réellement en plein écran (Fullscreen API), il ne rend
+  // QUE l'élément plein écran et ses descendants. La modale, placée à la racine du
+  // document, restait donc invisible : les pop-up (monarque, jour/nuit, relance)
+  // semblaient ne pas s'ouvrir. On la rattache à l'élément plein écran le temps
+  // de l'affichage, puis on la remet à sa place.
+  function mountModalHost(){
+    const host = document.fullscreenElement || document.webkitFullscreenElement || document.body;
+    if(modalOverlay.parentNode !== host) host.appendChild(modalOverlay);
+  }
+  function unmountModalHost(){
+    if(modalOverlay.parentNode !== document.body) document.body.appendChild(modalOverlay);
+  }
+
   // Vide le contenu variable : sans cela, rouvrir un panneau depuis un autre
   // (réglages → éditeur → réglages) empilait les blocs au lieu de les remplacer.
   function clearModalDynamic(){
+    mountModalHost();
     modalActions.parentNode.querySelectorAll('.modal-dynamic').forEach(el => el.remove());
     modalActions.innerHTML = '';
   }
 
   function closeModal(){
     modalOverlay.hidden = true;
+    unmountModalHost();
     modalActions.innerHTML = '';
     modalMessage.hidden = false;   // certains panneaux le masquent : on rétablit l'état
 
@@ -5293,8 +5308,13 @@
   lifeFullscreenBtn.addEventListener('click', enterLifeFullscreen);
   fsExitBtn.addEventListener('click', exitLifeFullscreen);
   document.addEventListener('fullscreenchange', () => {
+    // Une modale rattachée à l'élément plein écran doit revenir dans le document
+    // quand celui-ci se referme, sans quoi elle disparaîtrait avec lui.
+    if(!document.fullscreenElement && !modalOverlay.hidden) unmountModalHost();
     if(!document.fullscreenElement && !lifeFullscreenOverlay.hidden){
       lifeFullscreenOverlay.hidden = true;
+      document.body.classList.remove('fs-locked');
+      releaseScreenLock();
     }
   });
 
