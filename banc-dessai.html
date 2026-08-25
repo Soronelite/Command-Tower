@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Banc d'essai — moteur de dés</title>
+<style>
+:root {
+  --ink-900: #171526;
+  --ink-850: #1c1930;
+  --ink-800: #232039;
+  --ink-700: #322d4d;
+  --ink-600: #453e68;
+  --bone: #ece6da;
+  --bone-dim: #9b93b0;
+  --brass: #d8a44a;
+  --brass-soft: #6b4f1d;
+  --gain: #82b57c;
+  --loss: #c9695f;
+
+  --display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  padding: clamp(1rem, 4vw, 2.5rem) clamp(0.9rem, 4vw, 2.5rem) 5rem;
+  background: var(--ink-900);
+  background-image: radial-gradient(ellipse 90% 55% at 50% -10%, #2a2445 0%, transparent 70%);
+  color: var(--bone);
+  font-family: var(--ui);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.wrap { max-width: 60rem; margin: 0 auto; }
+
+/* ---------- en-tête ---------- */
+
+header { margin-bottom: 2rem; }
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--brass);
+  margin: 0 0 0.5rem;
+}
+
+h1 {
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: clamp(1.7rem, 5vw, 2.6rem);
+  line-height: 1.1;
+  margin: 0 0 0.6rem;
+}
+
+.lede {
+  color: var(--bone-dim);
+  max-width: 46ch;
+  margin: 0;
+}
+
+/* ---------- panneaux ---------- */
+
+section {
+  background: var(--ink-850);
+  border: 1px solid var(--ink-700);
+  border-radius: 4px;
+  padding: clamp(0.9rem, 3vw, 1.4rem);
+  margin-bottom: 1.1rem;
+}
+
+h2 {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--bone-dim);
+  font-weight: 500;
+  margin: 0 0 1rem;
+}
+
+/* ---------- formulaire ---------- */
+
+.fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+}
+
+label {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--bone-dim);
+  margin-bottom: 0.3rem;
+}
+
+input[type="text"] {
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  background: var(--ink-900);
+  border: 1px solid var(--ink-700);
+  border-radius: 3px;
+  color: var(--bone);
+  font-family: var(--mono);
+  font-size: 0.95rem;
+}
+
+input[type="text"]:focus-visible,
+button:focus-visible,
+input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--brass);
+  outline-offset: 2px;
+}
+
+.buttons { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+
+button {
+  font-family: var(--ui);
+  font-size: 0.9rem;
+  padding: 0.6rem 1.1rem;
+  min-height: 44px;
+  border-radius: 3px;
+  border: 1px solid var(--ink-600);
+  background: var(--ink-800);
+  color: var(--bone);
+  cursor: pointer;
+}
+
+button:hover { border-color: var(--brass-soft); }
+
+button.primary {
+  background: var(--brass);
+  border-color: var(--brass);
+  color: #211a08;
+  font-weight: 600;
+}
+
+button.primary:hover { background: #e6b45c; }
+
+/* ---------- effets ---------- */
+
+.effects { display: grid; gap: 0.15rem; }
+
+.effect {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: baseline;
+  gap: 0.7rem;
+  padding: 0.55rem 0.5rem;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.effect:hover { background: var(--ink-800); }
+
+.effect input { margin: 0; accent-color: var(--brass); width: 1.05rem; height: 1.05rem; }
+
+.effect-name { font-weight: 500; }
+
+.effect-desc { display: block; color: var(--bone-dim); font-size: 0.82rem; font-weight: 400; }
+
+.phase-tag {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--bone-dim);
+  border: 1px solid var(--ink-700);
+  border-radius: 2px;
+  padding: 0.12rem 0.4rem;
+  white-space: nowrap;
+}
+
+/* ---------- résultat ---------- */
+
+.result-head {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--ink-700);
+  margin-bottom: 1rem;
+}
+
+.total {
+  font-family: var(--display);
+  font-size: clamp(3rem, 12vw, 4.5rem);
+  line-height: 0.9;
+  color: var(--brass);
+}
+
+.result-meta { font-family: var(--mono); font-size: 0.8rem; color: var(--bone-dim); }
+.result-meta b { color: var(--bone); font-weight: 500; }
+
+.dice { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1.2rem; }
+
+.die {
+  min-width: 2.6rem;
+  padding: 0.45rem 0.5rem;
+  text-align: center;
+  background: var(--ink-800);
+  border: 1px solid var(--ink-700);
+  border-radius: 3px;
+  font-family: var(--mono);
+}
+
+.die .value { font-size: 1.15rem; display: block; }
+.die .faces { font-size: 0.62rem; color: var(--bone-dim); display: block; }
+.die.changed { border-color: var(--brass-soft); }
+.die .raw { font-size: 0.68rem; color: var(--bone-dim); text-decoration: line-through; }
+
+/* ---------- la chaîne du jet : l'élément central ---------- */
+
+.chain { list-style: none; margin: 0; padding: 0; }
+
+.chain li {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr auto;
+  gap: 0.8rem;
+  align-items: baseline;
+  padding: 0.5rem 0;
+  border-left: 2px solid var(--ink-700);
+  padding-left: 1rem;
+  margin-left: 0.3rem;
+  position: relative;
+  animation: reveal 0.24s ease both;
+}
+
+.chain li::before {
+  content: "";
+  position: absolute;
+  left: -5px;
+  top: 1.05rem;
+  width: 8px;
+  height: 8px;
+  background: var(--brass);
+  border-radius: 50%;
+}
+
+.chain li.base::before { background: var(--ink-600); }
+
+@keyframes reveal {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chain li { animation: none; }
+}
+
+.chain .phase {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--bone-dim);
+}
+
+.chain .what b { font-weight: 500; }
+.chain .what small { color: var(--bone-dim); display: block; font-size: 0.78rem; }
+
+.chain .delta { font-family: var(--mono); font-size: 0.9rem; white-space: nowrap; }
+.chain .delta .arrow { color: var(--bone-dim); padding: 0 0.35rem; }
+.chain .delta .up { color: var(--gain); }
+.chain .delta .down { color: var(--loss); }
+
+@media (max-width: 34rem) {
+  .chain li { grid-template-columns: 1fr auto; }
+  .chain .phase { grid-column: 1 / -1; }
+}
+
+/* ---------- distribution ---------- */
+
+.histogram {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 7rem;
+  margin-bottom: 0.5rem;
+}
+
+.bar { flex: 1; background: var(--ink-600); border-radius: 1px 1px 0 0; min-height: 1px; }
+.bar.peak { background: var(--brass); }
+
+.axis {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--bone-dim);
+}
+
+/* ---------- tests ---------- */
+
+.test-suite { margin-bottom: 0.9rem; }
+.test-suite h3 { font-family: var(--mono); font-size: 0.75rem; color: var(--bone-dim); margin: 0 0 0.3rem; font-weight: 500; letter-spacing: 0.08em; }
+.test-case { font-family: var(--mono); font-size: 0.78rem; padding: 0.12rem 0; }
+.test-case .mark { display: inline-block; width: 1.4rem; }
+.test-case.ok .mark { color: var(--gain); }
+.test-case.ko { color: var(--loss); }
+.test-tally { font-family: var(--mono); font-size: 0.85rem; padding-top: 0.6rem; border-top: 1px solid var(--ink-700); }
+
+/* ---------- divers ---------- */
+
+.notice {
+  border-left: 2px solid var(--brass);
+  padding: 0.6rem 0 0.6rem 0.9rem;
+  color: var(--bone-dim);
+  font-size: 0.85rem;
+  margin-bottom: 1.1rem;
+}
+
+.notice code {
+  font-family: var(--mono);
+  color: var(--bone);
+  background: var(--ink-800);
+  padding: 0.1rem 0.35rem;
+  border-radius: 2px;
+}
+
+.error { color: var(--loss); font-family: var(--mono); font-size: 0.88rem; }
+
+.hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <p class="eyebrow">Outil de développement</p>
+  <h1>Banc d'essai du moteur de dés</h1>
+  <p class="lede">Aucune règle de combat n'existe encore. Cet écran sert à vérifier que les dés se lancent correctement et que les effets se combinent, étape par étape.</p>
+</header>
+
+<div id="file-warning" class="notice hidden">
+  <b>La page est ouverte en direct depuis le disque</b> et les modules JavaScript sont bloqués par le navigateur.
+  Ouvre un terminal dans ce dossier et lance <code>python3 -m http.server 8000</code>, puis va sur <code>http://localhost:8000</code>.
+</div>
+
+<section>
+  <h2>Le jet</h2>
+  <div class="fields">
+    <div>
+      <label for="notation">Notation</label>
+      <input type="text" id="notation" value="2d6" spellcheck="false" autocapitalize="off">
+    </div>
+    <div>
+      <label for="tags">Nature du jet</label>
+      <input type="text" id="tags" value="damage, melee" spellcheck="false" autocapitalize="off">
+    </div>
+    <div>
+      <label for="seed">Graine</label>
+      <input type="text" id="seed" value="" placeholder="au hasard" spellcheck="false" autocapitalize="off">
+    </div>
+  </div>
+  <div class="buttons">
+    <button class="primary" id="roll">Lancer le jet</button>
+    <button id="distribute">Lancer 2000 fois</button>
+  </div>
+  <p id="parse-error" class="error hidden"></p>
+</section>
+
+<section>
+  <h2>Effets actifs</h2>
+  <div class="effects" id="effects"></div>
+  <p class="notice" style="margin: 1rem 0 0;">Ces sept effets sont des <b>exemples techniques</b>, pas des règles validées. Ils servent uniquement à montrer que des effets écrits comme de simples données se combinent sans être connus du moteur.</p>
+</section>
+
+<section id="result-panel" class="hidden">
+  <h2>Résultat</h2>
+  <div class="result-head">
+    <div class="total" id="total">—</div>
+    <div class="result-meta" id="result-meta"></div>
+  </div>
+  <div class="dice" id="dice"></div>
+  <ul class="chain" id="chain"></ul>
+</section>
+
+<section id="dist-panel" class="hidden">
+  <h2>Distribution sur 2000 jets</h2>
+  <div class="histogram" id="histogram"></div>
+  <div class="axis"><span id="dist-min"></span><span id="dist-max"></span></div>
+  <p class="result-meta" id="dist-meta" style="margin-top: 0.8rem;"></p>
+</section>
+
+<section>
+  <h2>Tests du noyau</h2>
+  <div class="buttons"><button id="run-tests">Lancer les tests</button></div>
+  <div id="test-output" style="margin-top: 1.1rem;"></div>
+</section>
+
+</div>
+
+<script>
+  // Détecte le blocage des modules quand la page est ouverte en file://
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      if (!window.__bancCharge && location.protocol === 'file:') {
+        document.getElementById('file-warning').classList.remove('hidden');
+      }
+    }, 500);
+  });
+</script>
+
+<script type="module">
+import { createRng } from './src/core/rng.js';
+import { ModifierPipeline, PHASES } from './src/core/modifiers.js';
+import { roll, parseNotation, averageOf, rangeOf,
+         withExtraDice, withFaceShift } from './src/core/dice.js';
+
+window.__bancCharge = true;
+
+/* ------------------------------------------------------------------ */
+/* Effets de démonstration.                                            */
+/* Ce ne sont PAS des règles du jeu : ce sont des exemples montrant    */
+/* qu'un effet s'écrit comme une donnée et non comme un cas particulier */
+/* codé dans le moteur.                                                */
+/* ------------------------------------------------------------------ */
+
+const DEMOS = [
+  {
+    id: 'perforante', label: 'Perforante', phase: PHASES.FLAT,
+    requires: ['damage'], source: 'demo',
+    desc: 'Ajoute 2 au bonus fixe.',
+    apply: (v) => v + 2,
+  },
+  {
+    id: 'lame-ebrechee', label: 'Lame émoussée', phase: PHASES.DIE,
+    source: 'demo',
+    desc: 'Chaque dé qui tombe sur 1 compte 2.',
+    apply: (v) => (v === 1 ? 2 : v),
+  },
+  {
+    id: 'gantelets', label: 'Gantelets du colosse', phase: PHASES.SPEC,
+    source: 'demo',
+    desc: 'Un dé de plus par groupe, avant tirage.',
+    apply: (spec) => withExtraDice(spec, 1),
+  },
+  {
+    id: 'pierre-aiguiser', label: 'Pierre à aiguiser', phase: PHASES.SPEC,
+    source: 'demo',
+    desc: 'Agrandit les dés de deux faces (d6 → d8).',
+    apply: (spec) => withFaceShift(spec, 2),
+  },
+  {
+    id: 'echo', label: 'Écho arcanique', phase: PHASES.TOTAL, priority: 0,
+    source: 'demo',
+    desc: 'Déclenche un second jet de 1d4 et l’ajoute.',
+    apply: (v, ctx) => v + ctx.roll('1d4', { tags: ['echo'] }).total,
+  },
+  {
+    id: 'rage', label: 'Rage', phase: PHASES.TOTAL, priority: 10,
+    requires: ['damage'], source: 'demo',
+    desc: 'Double le total, après tout le reste.',
+    apply: (v) => v * 2,
+  },
+  {
+    id: 'chasseur', label: 'Chasseur de morts-vivants', phase: PHASES.FLAT,
+    source: 'demo',
+    desc: 'Ajoute 3 si la cible est un mort-vivant.',
+    when: (ctx) => ctx.target?.famille === 'mort-vivant',
+    apply: (v) => v + 3,
+  },
+];
+
+const PHASE_LABEL = {
+  spec: 'notation', die: 'dé', group: 'groupe', flat: 'bonus', total: 'total',
+};
+
+/* ------------------------------------------------------------------ */
+
+const $ = (id) => document.getElementById(id);
+const active = new Set();
+let target = null;
+
+function buildEffectList() {
+  const box = $('effects');
+  for (const d of DEMOS) {
+    const row = document.createElement('label');
+    row.className = 'effect';
+    row.innerHTML = `
+      <input type="checkbox" data-id="${d.id}">
+      <span class="effect-name">${d.label}<small class="effect-desc">${d.desc}</small></span>
+      <span class="phase-tag">${PHASE_LABEL[d.phase]}</span>`;
+    row.querySelector('input').addEventListener('change', (e) => {
+      e.target.checked ? active.add(d.id) : active.delete(d.id);
+      doRoll();
+    });
+    box.appendChild(row);
+  }
+
+  const row = document.createElement('label');
+  row.className = 'effect';
+  row.innerHTML = `
+    <input type="checkbox" id="undead">
+    <span class="effect-name">La cible est un mort-vivant<small class="effect-desc">Change le contexte du jet, pas le jet lui-même.</small></span>
+    <span class="phase-tag">contexte</span>`;
+  row.querySelector('input').addEventListener('change', (e) => {
+    target = e.target.checked ? { famille: 'mort-vivant' } : null;
+    doRoll();
+  });
+  box.appendChild(row);
+}
+
+function buildPipeline() {
+  const p = new ModifierPipeline();
+  for (const d of DEMOS) if (active.has(d.id)) p.add(d);
+  return p;
+}
+
+function readTags() {
+  return $('tags').value.split(',').map((t) => t.trim()).filter(Boolean);
+}
+
+function makeRng() {
+  const seed = $('seed').value.trim();
+  return createRng(seed === '' ? Date.now() ^ (Math.random() * 1e9) : seed);
+}
+
+function showError(message) {
+  const el = $('parse-error');
+  if (message) { el.textContent = message; el.classList.remove('hidden'); }
+  else el.classList.add('hidden');
+}
+
+/* ------------------------------------------------------------------ */
+
+function doRoll() {
+  const notation = $('notation').value;
+  let result;
+  try {
+    parseNotation(notation);
+    result = roll(notation, {
+      rng: makeRng(), pipeline: buildPipeline(), tags: readTags(), target,
+    });
+  } catch (err) {
+    showError(err.message);
+    return;
+  }
+  showError(null);
+  render(result, notation);
+}
+
+function render(result, notation) {
+  $('result-panel').classList.remove('hidden');
+  $('total').textContent = result.total;
+
+  const { min, max } = rangeOf(notation);
+  $('result-meta').innerHTML = `
+    demandé <b>${result.notation}</b><br>
+    effectif <b>${result.effective}</b><br>
+    sans effet : ${min} à ${max}, moyenne ${averageOf(notation)}`;
+
+  $('dice').innerHTML = result.groups.flatMap((g) =>
+    g.dice.map((d) => `
+      <div class="die${d.raw !== d.value ? ' changed' : ''}">
+        <span class="value">${d.value}</span>
+        ${d.raw !== d.value ? `<span class="raw">${d.raw}</span>` : ''}
+        <span class="faces">d${g.faces}</span>
+      </div>`)
+  ).join('') || '<div class="result-meta">aucun dé</div>';
+
+  const rows = [`
+    <li class="base">
+      <span class="phase">tirage</span>
+      <span class="what"><b>Somme des dés et du bonus</b><small>avant tout effet sur le total</small></span>
+      <span class="delta">${result.rawTotal}</span>
+    </li>`];
+
+  for (const s of result.steps) {
+    const numeric = typeof s.before === 'number' && typeof s.after === 'number';
+    const dir = numeric ? (s.after > s.before ? 'up' : 'down') : '';
+    rows.push(`
+      <li>
+        <span class="phase">${PHASE_LABEL[s.phase]}</span>
+        <span class="what"><b>${s.label}</b>${s.target ? `<small>sur ${s.target}</small>` : ''}</span>
+        <span class="delta">${s.before}<span class="arrow">→</span><span class="${dir}">${s.after}</span></span>
+      </li>`);
+  }
+
+  rows.push(`
+    <li class="base">
+      <span class="phase">final</span>
+      <span class="what"><b>Total</b></span>
+      <span class="delta">${result.total}</span>
+    </li>`);
+
+  $('chain').innerHTML = rows.join('');
+}
+
+/* ------------------------------------------------------------------ */
+
+function doDistribution() {
+  const notation = $('notation').value;
+  const tags = readTags();
+  const rng = makeRng();
+  const pipeline = buildPipeline();
+  const counts = new Map();
+  let sum = 0, lo = Infinity, hi = -Infinity;
+
+  try {
+    for (let i = 0; i < 2000; i++) {
+      const t = roll(notation, { rng, pipeline, tags, target }).total;
+      counts.set(t, (counts.get(t) ?? 0) + 1);
+      sum += t; lo = Math.min(lo, t); hi = Math.max(hi, t);
+    }
+  } catch (err) { showError(err.message); return; }
+  showError(null);
+
+  const peak = Math.max(...counts.values());
+  let bars = '';
+  for (let v = lo; v <= hi; v++) {
+    const c = counts.get(v) ?? 0;
+    bars += `<div class="bar${c === peak ? ' peak' : ''}" style="height:${(c / peak) * 100}%" title="${v} : ${c} fois"></div>`;
+  }
+
+  $('dist-panel').classList.remove('hidden');
+  $('histogram').innerHTML = bars;
+  $('dist-min').textContent = lo;
+  $('dist-max').textContent = hi;
+  $('dist-meta').textContent =
+    `moyenne observée ${(sum / 2000).toFixed(2)} — étendue ${lo} à ${hi} — ${counts.size} valeurs distinctes`;
+}
+
+/* ------------------------------------------------------------------ */
+
+async function runTests() {
+  const out = $('test-output');
+  out.textContent = 'Exécution…';
+  try {
+    await import('./tests/core.test.js');
+    await import('./tests/systemes.test.js');
+    await import('./tests/xp.test.js');
+    await import('./tests/regles.test.js');
+    await import('./tests/equipement.test.js');
+    await import('./tests/xp.test.js');
+    const { runAll } = await import('./tests/harness.js');
+    const r = runAll();
+    out.innerHTML = r.results.map((s) => `
+      <div class="test-suite">
+        <h3>${s.name}</h3>
+        ${s.cases.map((c) => `
+          <div class="test-case ${c.ok ? 'ok' : 'ko'}">
+            <span class="mark">${c.ok ? '✓' : '✕'}</span>${c.label}
+            ${c.ok ? '' : `<br><span class="mark"></span>${c.message}`}
+          </div>`).join('')}
+      </div>`).join('')
+      + `<p class="test-tally">${r.passed} / ${r.total} réussis${r.failed ? ` — ${r.failed} en échec` : ''}</p>`;
+  } catch (err) {
+    out.innerHTML = `<p class="error">${err.message}</p>`;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+
+buildEffectList();
+$('roll').addEventListener('click', doRoll);
+$('distribute').addEventListener('click', doDistribution);
+$('run-tests').addEventListener('click', runTests);
+$('notation').addEventListener('keydown', (e) => { if (e.key === 'Enter') doRoll(); });
+$('tags').addEventListener('keydown', (e) => { if (e.key === 'Enter') doRoll(); });
+$('seed').addEventListener('keydown', (e) => { if (e.key === 'Enter') doRoll(); });
+doRoll();
+</script>
+</body>
+</html>
