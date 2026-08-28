@@ -464,6 +464,38 @@
   .roster-chip .dot{ width:11px; height:11px; border-radius:50%; flex-shrink:0; border:1px solid rgba(0,0,0,0.25); }
   .roster-quick-label{ font-size:0.76rem; color: var(--text-muted); margin:10px 0 0; }
 
+  .mana-base-row{
+    display:flex; align-items:center; gap:10px;
+    padding:9px 0; border-bottom:1px solid var(--border);
+  }
+  .mana-base-row:last-child{ border-bottom:none; }
+  .mana-base-info{ flex:1; min-width:0; }
+  .mana-base-name{
+    display:block; font-size:0.9rem; font-weight:600;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .mana-base-meta{ display:block; font-size:0.74rem; color: var(--text-muted); }
+  .mana-base-actions{ display:flex; gap:6px; flex-shrink:0; }
+  .mana-base-actions button{
+    background:none; border:1px solid var(--border); color: var(--text-muted);
+    border-radius:6px; padding:5px 9px; font-size:0.76rem; cursor:pointer;
+  }
+  .mana-base-actions button:hover{ border-color: var(--accent); color: var(--accent-strong); }
+  .mana-base-empty{ color: var(--text-muted); font-style:italic; font-size:0.85rem; padding:6px 0; }
+
+  .recap-costs{ margin-top:16px; padding-top:14px; border-top:1px solid var(--border); }
+  .recap-costs-title{ font-size:0.82rem; margin:0 0 10px; color: var(--text); }
+  .recap-curve{ display:flex; flex-wrap:wrap; gap:4px; margin:4px 0 12px; }
+  .recap-curve-cell{
+    display:flex; flex-direction:column; align-items:center; gap:1px;
+    min-width:34px; padding:4px 6px;
+    border:1px solid var(--border); border-radius:6px;
+    background: var(--bg);
+  }
+  .recap-curve-cmc{ font-size:0.66rem; color: var(--text-muted); }
+  .recap-curve-count{ font-size:0.85rem; font-weight:700; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .recap-pip-detail{ font-size:0.72rem; color: var(--text-muted); margin-left:4px; }
+
   .changelog-entry{
     border:1px solid var(--border);
     border-radius:8px;
@@ -2340,6 +2372,27 @@
           </div>
           <div id="recapList" class="breakdown-list"></div>
           <p id="recapEmpty" class="result-empty">Renseignez vos terrains et rocks/dorks non-basiques ci-dessous pour voir le détail par couleur.</p>
+
+          <div class="recap-costs">
+            <h4 class="recap-costs-title">Coûts déclarés</h4>
+            <div class="recap-stats">
+              <div class="stat">
+                <span class="stat-label">Cartes non-terrain</span>
+                <span class="recap-stat-value" id="recapSpells">0</span>
+              </div>
+              <div class="stat">
+                <span class="stat-label">Coûts hybrides</span>
+                <span class="recap-stat-value" id="recapHybrid">0</span>
+              </div>
+              <div class="stat">
+                <span class="stat-label">Coûts multicolores stricts</span>
+                <span class="recap-stat-value" id="recapGold">0</span>
+              </div>
+            </div>
+            <div id="recapCurve" class="recap-curve"></div>
+            <div id="recapPips" class="breakdown-list"></div>
+            <p id="recapCostsEmpty" class="result-empty">Renseignez la courbe de mana et les symboles pour voir ce récapitulatif.</p>
+          </div>
         </div>
       </div>
 
@@ -2406,22 +2459,38 @@
 
       <!-- Pips colorés -->
       <section class="card">
-        <h2 class="card-title"><span class="idx">04</span> Besoins colorés (pips)</h2>
-        <p class="card-hint">Par couleur : total de symboles, doubles précoces et triples.</p>
+        <h2 class="card-title"><span class="idx">04</span> Coûts hybrides et multicolores</h2>
+        <p class="card-hint">Ces cartes se déclarent <strong>uniquement ici</strong>. Ne les recomptez pas dans les symboles de la section 05 : elles y seraient comptées deux fois.</p>
+
+        <div class="subsection">
+          <h3 class="subsection-title">Coûts hybrides</h3>
+          <p class="subsection-hint">Un symbole hybride se paie avec l'une <em>ou</em> l'autre couleur (ex : {W/U}). La carte n'impose donc aucune couleur précise : indiquez le nombre de cartes concernées pour chaque paire.</p>
+          <div id="hybridContainer"></div>
+          <p class="combo-empty" id="hybridEmpty">Sélectionnez au moins 2 couleurs pour renseigner des coûts hybrides.</p>
+        </div>
+
+        <div class="subsection">
+          <h3 class="subsection-title">Coûts multicolores stricts</h3>
+          <p class="subsection-hint">Une carte qui exige plusieurs couleurs <em>en même temps</em>, sans alternative (ex : {W}{U}). Comptez-la une seule fois, sur la ligne correspondant à ses couleurs.</p>
+          <div id="goldContainer"></div>
+          <div id="goldTriContainer"></div>
+          <div id="goldQuadContainer"></div>
+          <div id="goldQuintRow"></div>
+          <p class="combo-empty" id="goldEmpty">Sélectionnez au moins 2 couleurs pour renseigner des coûts multicolores.</p>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 class="card-title"><span class="idx">05</span> Besoins colorés (pips)</h2>
+        <p class="card-hint">Par couleur : total de symboles, doubles précoces et triples. Ne comptez ici <strong>ni les coûts hybrides ou multicolores</strong> (section 04), <strong>ni les MDFC</strong> (section 06).</p>
         <div id="pipsContainer"></div>
         <p class="pips-empty" id="pipsEmpty">Aucune couleur sélectionnée — activez une couleur ci-dessus.</p>
 
-        <div class="subsection">
-          <h3 class="subsection-title">Coûts bicolores stricts</h3>
-          <p class="subsection-hint">Coûts exigeant les deux symboles à la fois, sans alternative.</p>
-          <div id="goldContainer"></div>
-          <p class="combo-empty" id="goldEmpty">Sélectionnez au moins 2 couleurs pour renseigner des coûts bicolores.</p>
-        </div>
       </section>
 
       <!-- Terrains non-basiques -->
       <section class="card">
-        <h2 class="card-title"><span class="idx">05</span> Terrains non-basiques</h2>
+        <h2 class="card-title"><span class="idx">06</span> Terrains non-basiques</h2>
         <p class="card-hint">Répartissez-les selon le nombre de couleurs sélectionnées qu'ils produisent.</p>
 
         <div id="landColorlessRow"></div>
@@ -2449,6 +2518,15 @@
         <div class="subsection" id="landAllRow"></div>
 
         <div class="subsection">
+          <h3 class="subsection-title">Cartes recto-verso modales (MDFC)</h3>
+          <p class="subsection-hint">Cartes ayant un sort d'un côté et un terrain de l'autre. Indiquez les couleurs produites par leur face terrain : elles sont créditées comme sources partielles et réduisent le nombre de terrains à jouer. <strong>Ne les comptez pas dans la courbe de mana</strong> comme des sorts ordinaires.</p>
+          <div id="mdfcMonoContainer"></div>
+          <div id="mdfcDualContainer"></div>
+          <p class="combo-empty" id="mdfcEmpty">Sélectionnez au moins une couleur pour renseigner des MDFC.</p>
+          <div id="mdfcTappedRow"></div>
+        </div>
+
+        <div class="subsection">
           <h3 class="subsection-title">Fetchlands</h3>
           <p class="subsection-hint">Ils occupent une place de terrain — donc autant de basiques en moins à ajouter — mais ne sont crédités d'aucune couleur.</p>
           <div id="fetchRow"></div>
@@ -2457,7 +2535,7 @@
 
       <!-- Rocks/Dorks / Ramp / Cantrips -->
       <section class="card">
-        <h2 class="card-title"><span class="idx">06</span> Rocks/Dorks, ramp &amp; cantrips</h2>
+        <h2 class="card-title"><span class="idx">07</span> Rocks/Dorks, ramp &amp; cantrips</h2>
         <p class="card-hint">Rocks et dorks, traités de la même façon : ils réduisent le nombre de terrains nécessaires selon leur coût.</p>
         <div id="rampModifiersGrid"></div>
 
@@ -2485,6 +2563,36 @@
           </div>
 
           <div class="subsection" id="rockAllRow"></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 class="card-title"><span class="idx">08</span> Mes bases de mana</h2>
+        <p class="card-hint">Enregistrez la saisie en cours pour y revenir plus tard. Les bases sont conservées sur cet appareil.</p>
+
+        <div class="field-row" style="align-items:flex-end;">
+          <div class="field" style="flex:1; min-width:0;">
+            <label for="manaBaseName">Nom de la base</label>
+            <input type="text" id="manaBaseName" maxlength="60" placeholder="Ex : Atraxa Superfriends">
+          </div>
+          <button type="button" class="primary" id="manaSaveBtn">Enregistrer ma base</button>
+        </div>
+        <div id="manaSaveFeedback" class="alert info" hidden></div>
+
+        <div id="manaBaseList" style="margin-top:14px;"></div>
+
+        <div class="subsection">
+          <h3 class="subsection-title">Transférer une base</h3>
+          <p class="subsection-hint">Les bases restent sur cet appareil. Pour les transférer, exportez le texte ci-dessous et collez-le sur l'autre appareil.</p>
+          <div class="field">
+            <label for="manaTransfer">Code de la base</label>
+            <textarea id="manaTransfer" rows="4" placeholder="Collez ici un code exporté, puis appuyez sur Importer."></textarea>
+          </div>
+          <div class="actions" style="margin-top:10px;">
+            <button type="button" class="secondary" id="manaExportBtn">Exporter la base en cours</button>
+            <button type="button" class="secondary" id="manaImportBtn">Importer</button>
+          </div>
+          <div id="manaTransferFeedback" class="alert info" hidden></div>
         </div>
       </section>
 
@@ -2709,8 +2817,23 @@
   // NOTE INTERNE : à chaque nouvelle version, ajouter une entrée EN TÊTE de CHANGELOG
   // ({ version, date, changes: [...] }) et mettre APP_VERSION à jour. Le pied de page
   // et l'onglet « Version » des réglages se mettent à jour automatiquement.
-  const APP_VERSION = '1.0';
+  const APP_VERSION = '1.1';
   const CHANGELOG = [
+    {
+      version: '1.1',
+      date: '2026',
+      changes: [
+        'Calculateur de mana : nouvelle section dédiée aux coûts hybrides et multicolores, à déclarer une seule fois.',
+        'Calculateur de mana : coûts stricts étendus à 3, 4 et 5 couleurs.',
+        'Calculateur de mana : prise en compte des cartes recto-verso modales (MDFC), dégagées ou engagées.',
+        'Calculateur de mana : récapitulatif des coûts déclarés (courbe, symboles, hybrides, multicolores).',
+        'Calculateur de mana : enregistrement des bases, avec export et import par code pour changer d\'appareil.',
+        'Suivi de tournoi : formats Bo1, Bo3 et Bo5 au choix, et historique des tournois terminés.',
+        'Points de vie : monarque, cycle jour/nuit, compteur de storm et dégâts de commandant.',
+        'Réglages : carnet de joueurs enregistrés, formulaire de contact et effacement sélectif des données.',
+        'Correction : les fenêtres de dialogue restaient invisibles en plein écran sur mobile.'
+      ]
+    },
     {
       version: '1.0',
       date: '2026',
@@ -2991,6 +3114,7 @@
     { key: 'tournament', label: 'Tournoi en cours' },
     { key: 'history',    label: 'Historique des tournois archivés' },
     { key: 'roster',     label: 'Joueurs enregistrés (carnet)' },
+    { key: 'mana',       label: 'Bases de mana enregistrées' },
     { key: 'prefs',      label: 'Réglages (thème, couleurs)' },
     { key: 'cache',      label: 'Cache hors ligne de l\'application' }
   ];
@@ -3022,6 +3146,10 @@
     if(scopes.indexOf('tournament') >= 0){ tournament.rounds = []; tournament.droppedPlayers.clear(); }
     if(scopes.indexOf('history') >= 0){ tournamentHistory.length = 0; }
     if(scopes.indexOf('roster') >= 0){ roster.length = 0; }
+    // Les bases de mana ont leur propre clé : le module du calculateur est autonome.
+    if(scopes.indexOf('mana') >= 0){
+      try{ window.localStorage.removeItem('mtg-compagnon-mana-v1'); }catch(e){}
+    }
     if(scopes.indexOf('prefs') >= 0){ themeMode = 'auto'; currentColorTheme = 'Neutre'; }
 
     // On réécrit l'état conservé, sauf si tout est effacé.
@@ -6302,6 +6430,10 @@
       return Math.round(size * 0.4);
   }
 
+  function sumValuesSafe(obj){
+    return Object.values(obj || {}).reduce((a, b) => a + (b || 0), 0);
+  }
+
   function calculerBaseDeMana(deckData) {
       let totalTerrainsRecommandes = baseLandsForSize(deckData.deck_size);
       let totalCartesNonTerrain = 0;
@@ -6327,6 +6459,19 @@
           if (rock.cmc === 2) reductionRamp += (rock.count / 2.5);
       });
       totalTerrainsRecommandes -= Math.floor(reductionRamp);
+
+      // MDFC : chaque carte recto-verso modale fait office de terrain une partie
+      // du temps et réduit donc le nombre de terrains à jouer. Coefficients issus
+      // de la régression de Karsten : 0,74 pour une face terrain qui arrive
+      // dégagée, 0,38 si elle arrive engagée.
+      const mdfc = deckData.mdfc_detail || { mono: {}, dual: {}, tapped: 0 };
+      const mdfcTotal = sumValuesSafe(mdfc.mono) + sumValuesSafe(mdfc.dual);
+      const mdfcTapped = Math.min(mdfc.tapped || 0, mdfcTotal);
+      const mdfcUntapped = mdfcTotal - mdfcTapped;
+      const reductionMdfc = (0.74 * mdfcUntapped) + (0.38 * mdfcTapped);
+      // On soustrait la valeur exacte puis on arrondit une seule fois : arrondir
+      // la réduction elle-même gommerait l'écart entre MDFC dégagés et engagés.
+      totalTerrainsRecommandes = Math.max(0, Math.round(totalTerrainsRecommandes - reductionMdfc));
 
       // Le total de terrains non-basiques est calculé à partir du détail
       // par nombre de couleurs produites, au lieu d'être saisi comme un
@@ -6378,8 +6523,17 @@
 
       const sourcesRocksBrutes = sourcesParCouleur(rockDetail);
       const RATIO_CREDIT_ROCK = 0.75; // une rock = 3/4 d'une source colorée (Karsten)
+      // Un MDFC n'est joué en terrain qu'environ une fois sur deux : on ne le
+      // crédite donc qu'à moitié comme source colorée.
+      const RATIO_CREDIT_MDFC = 0.5;
+      const sourcesMdfcBrutes = sourcesParCouleur({
+        colorless: 0, mono: mdfc.mono, dual: mdfc.dual, tri: {}, all: 0
+      });
       const creditRocks = {};
-      deckData.selected_colors.forEach(c => { creditRocks[c] = RATIO_CREDIT_ROCK * (sourcesRocksBrutes[c] || 0); });
+      deckData.selected_colors.forEach(c => {
+        creditRocks[c] = (RATIO_CREDIT_ROCK * (sourcesRocksBrutes[c] || 0))
+                       + (RATIO_CREDIT_MDFC * (sourcesMdfcBrutes[c] || 0));
+      });
 
       const poidsCouleurs = {};
       let poidsTotal = 0;
@@ -6392,11 +6546,31 @@
           poidsCouleurs[couleur] = poids;
       });
 
-      // coûts bicolores stricts : les deux couleurs sont exigées (1 par couleur)
-      Object.entries(deckData.gold_pairs).forEach(([key, count]) => {
+      // Coûts stricts (2, 3, 4 ou 5 couleurs) : chaque couleur exigée reçoit +1.
+      // C'est la transposition du raccourci de Karsten pour les coûts multicolores :
+      // on décompose le coût en exigences simples, puis on ajoute une source à
+      // chacune d'elles.
+      [deckData.gold_pairs, deckData.gold_trios, deckData.gold_quads, deckData.gold_quints]
+        .forEach(groupe => {
+          Object.entries(groupe || {}).forEach(([key, count]) => {
+              if (!count) return;
+              key.split("-").forEach(c => {
+                  // Poids 2 : la carte n'est plus saisie dans les symboles simples,
+                  // sa ligne porte donc l'exigence entière — 1 pour le symbole,
+                  // 1 pour la majoration du raccourci de Karsten sur les coûts
+                  // multicolores. Le résultat est identique à l'ancienne double saisie.
+                  if (poidsCouleurs[c] !== undefined) poidsCouleurs[c] += 2 * count;
+              });
+          });
+        });
+
+      // Coûts hybrides : payables avec l'une OU l'autre couleur, ils n'imposent
+      // aucune exigence ferme. On répartit un poids de 1 entre les deux couleurs
+      // (0,5 chacune) : la carte oriente la base sans la contraindre.
+      Object.entries(deckData.hybrid_pairs || {}).forEach(([key, count]) => {
           if (!count) return;
           key.split("-").forEach(c => {
-              if (poidsCouleurs[c] !== undefined) poidsCouleurs[c] += 1 * count;
+              if (poidsCouleurs[c] !== undefined) poidsCouleurs[c] += 0.5 * count;
           });
       });
 
@@ -6510,6 +6684,8 @@
   }
   const ALL_PAIRS = combinations(REAL_COLORS, 2);
   const ALL_TRIOS = combinations(REAL_COLORS, 3);
+  const ALL_QUADS = combinations(REAL_COLORS, 4);
+  const ALL_QUINTS = combinations(REAL_COLORS, 5);
 
   /* =========================================================
      IDENTITÉ COLORÉE DU DECK (nom d'archétype + détection de splash)
@@ -6817,13 +6993,47 @@
   const goldContainer = document.getElementById("goldContainer");
   const goldEmpty = document.getElementById("goldEmpty");
 
-  const COMBO_ROWS = { gold: [], landDual: [], landTri: [], rockDual: [], rockTri: [] };
+  const hybridContainer = document.getElementById("hybridContainer");
+  const hybridEmpty = document.getElementById("hybridEmpty");
 
+  const COMBO_ROWS = {
+    gold: [], goldTri: [], goldQuad: [], goldQuint: [],
+    hybrid: [],
+    landDual: [], landTri: [], rockDual: [], rockTri: [],
+    mdfcDual: []
+  };
+
+  // Coûts hybrides : une ligne par paire de couleurs.
+  ALL_PAIRS.forEach(pair => {
+    const row = createComboRow("hybrid-" + pair.join(""), pair);
+    hybridContainer.appendChild(row);
+    COMBO_ROWS.hybrid.push({ row, colors: pair });
+  });
+
+  // Coûts stricts : paires, trios, quadris et cinq couleurs.
   ALL_PAIRS.forEach(pair => {
     const key = pair.join("");
     const goldRow = createComboRow("gold-" + key, pair);
     goldContainer.appendChild(goldRow);
     COMBO_ROWS.gold.push({ row: goldRow, colors: pair });
+  });
+  const goldTriContainer = document.getElementById("goldTriContainer");
+  ALL_TRIOS.forEach(trio => {
+    const row = createComboRow("goldTri-" + trio.join(""), trio);
+    goldTriContainer.appendChild(row);
+    COMBO_ROWS.goldTri.push({ row, colors: trio });
+  });
+  const goldQuadContainer = document.getElementById("goldQuadContainer");
+  ALL_QUADS.forEach(quad => {
+    const row = createComboRow("goldQuad-" + quad.join(""), quad);
+    goldQuadContainer.appendChild(row);
+    COMBO_ROWS.goldQuad.push({ row, colors: quad });
+  });
+  const goldQuintRow = document.getElementById("goldQuintRow");
+  ALL_QUINTS.forEach(quint => {
+    const row = createComboRow("goldQuint-" + quint.join(""), quint);
+    goldQuintRow.appendChild(row);
+    COMBO_ROWS.goldQuint.push({ row, colors: quint });
   });
 
   /* =========================================================
@@ -6856,9 +7066,33 @@
   });
 
   const landAllRow = document.getElementById("landAllRow");
-  const landAllInnerRow = makeRow("Terrain — toutes les couleurs sélectionnées", "Ex : terrain de commandement, terre arc-en-ciel", "landAll");
+  const landAllInnerRow = makeRow("Terrain — toutes les couleurs sélectionnées", null, "landAll");
   landAllRow.appendChild(landAllInnerRow);
   landAllRow.hidden = true;
+
+  /* MDFC : mêmes catégories que les terrains (une ou deux couleurs produites),
+     plus une ligne indiquant combien arrivent engagés — seule cette répartition
+     change la réduction appliquée au nombre de terrains. */
+  const mdfcMonoContainer = document.getElementById("mdfcMonoContainer");
+  const MDFC_MONO_ROWS = {};
+  REAL_COLORS.forEach(code => {
+    const row = makeRow("MDFC — " + COLOR_META[code].name + " uniquement", null, "mdfcMono-" + code);
+    row.hidden = true;
+    mdfcMonoContainer.appendChild(row);
+    MDFC_MONO_ROWS[code] = row;
+  });
+  const mdfcDualContainer = document.getElementById("mdfcDualContainer");
+  ALL_PAIRS.forEach(pair => {
+    const row = createComboRow("mdfcDual-" + pair.join(""), pair);
+    mdfcDualContainer.appendChild(row);
+    COMBO_ROWS.mdfcDual.push({ row, colors: pair });
+  });
+  const mdfcTappedRow = document.getElementById("mdfcTappedRow");
+  mdfcTappedRow.appendChild(makeRow(
+    "…dont arrivant engagés",
+    "Un MDFC dégagé fait gagner 0,74 terrain, un MDFC engagé 0,38 (Karsten)",
+    "mdfcTapped"
+  ));
 
   // NOUVEAU — fetchlands : toujours visibles (indépendantes des couleurs
   // sélectionnées), puisqu'elles ne produisent elles-mêmes aucune couleur.
@@ -6923,7 +7157,17 @@
       const show = selectedColors.has(code);
       LAND_MONO_ROWS[code].hidden = !show;
       ROCK_MONO_ROWS[code].hidden = !show;
+      MDFC_MONO_ROWS[code].hidden = !show;
     });
+
+    refreshComboVisibility("hybrid", hybridEmpty);
+    refreshComboVisibility("goldTri", null);
+    refreshComboVisibility("goldQuad", null);
+    refreshComboVisibility("goldQuint", null);
+    refreshComboVisibility("mdfcDual", null);
+    // Les MDFC n'ont de sens que si au moins une couleur est sélectionnée.
+    document.getElementById("mdfcEmpty").hidden = selectedColors.size >= 1;
+    mdfcTappedRow.hidden = selectedColors.size < 1;
 
     refreshComboVisibility("gold", goldEmpty);
     refreshComboVisibility("landDual", document.getElementById("landDualEmpty"));
@@ -7041,6 +7285,32 @@
     };
   }
 
+  // Lit les valeurs d'un jeu de combinaisons (paires, trios, quadris, cinq couleurs).
+  function readComboValues(prefix, combos){
+    const out = {};
+    combos.forEach(combo => {
+      if (combo.every(c => selectedColors.has(c))){
+        out[combo.join("-")] = stepperValue(prefix + "-" + combo.join(""));
+      }
+    });
+    return out;
+  }
+
+  // MDFC : une ou deux couleurs produites, plus la part arrivant engagée.
+  function readMdfcDetail(){
+    const mono = {};
+    REAL_COLORS.forEach(c => {
+      if (selectedColors.has(c)) mono[c] = stepperValue("mdfcMono-" + c);
+    });
+    const dual = {};
+    ALL_PAIRS.forEach(pair => {
+      if (pair.every(c => selectedColors.has(c))){
+        dual[pair.join("-")] = stepperValue("mdfcDual-" + pair.join(""));
+      }
+    });
+    return { mono: mono, dual: dual, tri: {}, colorless: 0, all: 0, tapped: stepperValue("mdfcTapped") };
+  }
+
   function readPairValues(prefix){
     const out = {};
     ALL_PAIRS.forEach(pair => {
@@ -7081,7 +7351,12 @@
       rocks_color_detail: readComboDetail("rock"),
       selected_colors: Array.from(selectedColors),
       color_pips: color_pips,
-      gold_pairs: readPairValues("gold")
+      gold_pairs: readPairValues("gold"),
+      gold_trios: readComboValues("goldTri", ALL_TRIOS),
+      gold_quads: readComboValues("goldQuad", ALL_QUADS),
+      gold_quints: readComboValues("goldQuint", ALL_QUINTS),
+      hybrid_pairs: readComboValues("hybrid", ALL_PAIRS),
+      mdfc_detail: readMdfcDetail()
     };
   }
 
@@ -7096,6 +7371,7 @@
 
     renderBreakdown(result.repartition, result.statistiques.terrainsBasiquesCibles);
     renderNonBasicRecap(result);
+    renderCostRecap(deckData);
     renderDeckIdentity(deckData, result);
   }
 
@@ -7155,6 +7431,80 @@
       item.appendChild(cnt);
       breakdownListEl.appendChild(item);
     });
+  }
+
+  // Récapitulatif des coûts déclarés : courbe, symboles par couleur, hybrides
+  // et coûts multicolores. Il permet de relire d'un coup d'œil ce qui a été saisi.
+  function renderCostRecap(deckData){
+    const curveEl = document.getElementById("recapCurve");
+    const pipsEl = document.getElementById("recapPips");
+    const emptyEl = document.getElementById("recapCostsEmpty");
+    if(!curveEl || !pipsEl) return;
+
+    const sumObj = o => Object.values(o || {}).reduce((a, b) => a + (b || 0), 0);
+    const totalSorts = sumObj(deckData.mana_curve);
+    const totalHybrides = sumObj(deckData.hybrid_pairs);
+    const totalGold = sumObj(deckData.gold_pairs) + sumObj(deckData.gold_trios)
+                    + sumObj(deckData.gold_quads) + sumObj(deckData.gold_quints);
+
+    document.getElementById("recapSpells").textContent = totalSorts;
+    document.getElementById("recapHybrid").textContent = totalHybrides;
+    document.getElementById("recapGold").textContent = totalGold;
+
+    // Courbe de mana
+    curveEl.innerHTML = "";
+    const labels = ["0","1","2","3","4","5","6","7","8"];
+    labels.forEach(key => {
+      const n = deckData.mana_curve[key] || 0;
+      if(n <= 0) return;
+      const cell = document.createElement("div");
+      cell.className = "recap-curve-cell";
+      cell.innerHTML = '<span class="recap-curve-cmc">' + (key === "8" ? "8+" : key) + '</span>' +
+                       '<span class="recap-curve-count">' + n + '</span>';
+      curveEl.appendChild(cell);
+    });
+
+    // Symboles par couleur, avec le détail des doubles et triples
+    pipsEl.innerHTML = "";
+    let totalPips = 0;
+    COLOR_ORDER.filter(code => selectedColors.has(code)).forEach(code => {
+      const info = deckData.color_pips[code] || {};
+      const total = info.total_pips || 0;
+      const dbl = info.early_double_pips || 0;
+      const tri = info.early_triple_pips || 0;
+      if(total === 0 && dbl === 0 && tri === 0) return;
+      totalPips += total;
+
+      const item = document.createElement("div");
+      item.className = "breakdown-item";
+      const sw = document.createElement("span");
+      sw.className = "breakdown-swatch";
+      sw.style.background = "var(" + COLOR_META[code].varName + ")";
+      item.appendChild(sw);
+      const lab = document.createElement("span");
+      lab.className = "breakdown-label";
+      lab.textContent = COLOR_META[code].name;
+      item.appendChild(lab);
+      const extra = [];
+      if(dbl) extra.push(dbl + " double" + (dbl > 1 ? "s" : ""));
+      if(tri) extra.push(tri + " triple" + (tri > 1 ? "s" : ""));
+      if(extra.length){
+        const det = document.createElement("span");
+        det.className = "recap-pip-detail";
+        det.textContent = "(" + extra.join(", ") + ")";
+        item.appendChild(det);
+      }
+      const cnt = document.createElement("span");
+      cnt.className = "breakdown-count";
+      cnt.textContent = total;
+      item.appendChild(cnt);
+      pipsEl.appendChild(item);
+    });
+
+    const rien = (totalSorts === 0 && totalPips === 0 && totalHybrides === 0 && totalGold === 0);
+    emptyEl.hidden = !rien;
+    curveEl.hidden = rien;
+    pipsEl.hidden = rien;
   }
 
   function renderNonBasicRecap(result){
@@ -7219,6 +7569,228 @@
     resultCollapseToggle.classList.toggle("is-collapsed", collapsed);
     resultCollapseToggle.setAttribute("aria-expanded", String(!collapsed));
   });
+
+  /* =========================================================
+     Bases de mana enregistrées (stockage local, export / import)
+  ========================================================= */
+  const MANA_STORAGE_KEY = "mtg-compagnon-mana-v1";
+  const MANA_BASES_MAX = 30;
+  let manaBases = [];
+
+  // Un stepper ne s'écrit pas directement : on passe par son API pour que
+  // l'affichage, la valeur mémorisée et le recalcul restent cohérents.
+  function setStepper(id, value){
+    const el = STEPPERS[id];
+    if (!el) return;
+    const v = Math.max(0, parseInt(value, 10) || 0);
+    el.dataset.value = String(v);
+    const disp = el.querySelector('[data-role="value"]');
+    if (disp) disp.textContent = String(v);
+  }
+
+  // Photographie complète de la saisie en cours.
+  function snapshotManaBase(){
+    const steppers = {};
+    Object.keys(STEPPERS).forEach(id => { steppers[id] = stepperValue(id); });
+    return {
+      deckSize: currentDeckSize,
+      colors: Array.from(selectedColors),
+      steppers: steppers
+    };
+  }
+
+  // Restaure une photographie : couleurs, taille de deck, puis tous les compteurs.
+  function applyManaBase(snap){
+    if (!snap || typeof snap !== "object") return false;
+
+    // Couleurs : on synchronise les boutons avec la sélection enregistrée.
+    const wanted = new Set(Array.isArray(snap.colors) ? snap.colors : []);
+    colorsGroup.querySelectorAll(".color-toggle").forEach(btn => {
+      const code = btn.dataset.color;
+      const on = wanted.has(code);
+      btn.classList.toggle("active", on);
+      if (on) selectedColors.add(code); else selectedColors.delete(code);
+      if (PIPS_PANELS[code]) PIPS_PANELS[code].hidden = !on;
+    });
+
+    // Taille du deck : bouton correspondant ou champ personnalisé.
+    if (Number.isFinite(snap.deckSize)) {
+      currentDeckSize = snap.deckSize;
+      let matched = false;
+      deckSizeGroup.querySelectorAll("button").forEach(b => {
+        const isMatch = b.dataset.size === String(snap.deckSize);
+        b.classList.toggle("active", isMatch);
+        if (isMatch) matched = true;
+      });
+      if (!matched) {
+        const custom = deckSizeGroup.querySelector('[data-size="custom"]');
+        if (custom) custom.classList.add("active");
+        if (customSizeRow) customSizeRow.hidden = false;
+        if (customSizeInput) customSizeInput.value = snap.deckSize;
+      } else if (customSizeRow) {
+        customSizeRow.hidden = true;
+      }
+    }
+
+    // Compteurs : on remet tout à zéro avant d'appliquer, pour ne pas conserver
+    // des valeurs de la saisie précédente sur des lignes absentes de la base.
+    Object.keys(STEPPERS).forEach(id => setStepper(id, 0));
+    const saved = snap.steppers || {};
+    Object.keys(saved).forEach(id => setStepper(id, saved[id]));
+
+    refreshPipsVisibility();
+    refreshColorDependentUI();
+    recalcAll();
+    return true;
+  }
+
+  function loadManaBases(){
+    try{
+      const raw = window.localStorage.getItem(MANA_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      manaBases = Array.isArray(parsed) ? parsed : [];
+    }catch(e){ manaBases = []; }
+  }
+  function saveManaBases(){
+    try{ window.localStorage.setItem(MANA_STORAGE_KEY, JSON.stringify(manaBases)); }
+    catch(e){ /* stockage indisponible : la session reste utilisable */ }
+  }
+
+  const manaBaseNameEl = document.getElementById("manaBaseName");
+  const manaBaseListEl = document.getElementById("manaBaseList");
+  const manaSaveFeedback = document.getElementById("manaSaveFeedback");
+  const manaTransferEl = document.getElementById("manaTransfer");
+  const manaTransferFeedback = document.getElementById("manaTransferFeedback");
+
+  function feedback(el, message, kind){
+    if (!el) return;
+    el.hidden = false;
+    el.className = "alert " + (kind || "info");
+    el.textContent = message;
+  }
+
+  function renderManaBases(){
+    if (!manaBaseListEl) return;
+    if (manaBases.length === 0){
+      manaBaseListEl.innerHTML = '<p class="mana-base-empty">Aucune base enregistrée pour l\'instant.</p>';
+      return;
+    }
+    manaBaseListEl.innerHTML = manaBases.map((b, i) =>
+      '<div class="mana-base-row">' +
+        '<span class="mana-base-info">' +
+          '<span class="mana-base-name">' + escapeHtmlMana(b.name) + '</span>' +
+          '<span class="mana-base-meta">' + escapeHtmlMana(b.date || "") +
+            ' · ' + (b.data && b.data.deckSize ? b.data.deckSize + " cartes" : "") +
+            ((b.data && b.data.colors && b.data.colors.length) ? " · " + b.data.colors.join("") : "") +
+          '</span>' +
+        '</span>' +
+        '<span class="mana-base-actions">' +
+          '<button type="button" data-mana-load="' + i + '">Charger</button>' +
+          '<button type="button" data-mana-export="' + i + '">Exporter</button>' +
+          '<button type="button" data-mana-del="' + i + '">Supprimer</button>' +
+        '</span>' +
+      '</div>').join("");
+
+    manaBaseListEl.querySelectorAll("[data-mana-load]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const b = manaBases[parseInt(btn.dataset.manaLoad, 10)];
+        if (b && applyManaBase(b.data)){
+          manaBaseNameEl.value = b.name;
+          feedback(manaSaveFeedback, 'Base « ' + b.name + ' » chargée.', "info");
+        }
+      });
+    });
+    manaBaseListEl.querySelectorAll("[data-mana-export]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const b = manaBases[parseInt(btn.dataset.manaExport, 10)];
+        if (!b) return;
+        manaTransferEl.value = JSON.stringify({ name: b.name, data: b.data });
+        manaTransferEl.focus();
+        manaTransferEl.select();
+        feedback(manaTransferFeedback, 'Code de « ' + b.name + ' » prêt : copiez-le pour le transférer.', "info");
+      });
+    });
+    manaBaseListEl.querySelectorAll("[data-mana-del]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const i = parseInt(btn.dataset.manaDel, 10);
+        const b = manaBases[i];
+        if (!b) return;
+        manaBases.splice(i, 1);
+        saveManaBases();
+        renderManaBases();
+        feedback(manaSaveFeedback, 'Base « ' + b.name + ' » supprimée.', "info");
+      });
+    });
+  }
+
+  // Le module mana est indépendant : il dispose de son propre échappement.
+  function escapeHtmlMana(str){
+    return String(str).replace(/[&<>"']/g, ch => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    })[ch]);
+  }
+
+  document.getElementById("manaSaveBtn").addEventListener("click", () => {
+    const name = (manaBaseNameEl.value || "").trim();
+    if (!name){
+      feedback(manaSaveFeedback, "Donnez un nom à votre base avant de l'enregistrer.", "error");
+      manaBaseNameEl.focus();
+      return;
+    }
+    const now = new Date();
+    const entry = {
+      name: name,
+      date: now.toLocaleDateString("fr-FR"),
+      data: snapshotManaBase()
+    };
+    // Un même nom écrase la base existante plutôt que de la dupliquer.
+    const existing = manaBases.findIndex(b => b.name.toLowerCase() === name.toLowerCase());
+    if (existing >= 0) manaBases[existing] = entry;
+    else manaBases.unshift(entry);
+    if (manaBases.length > MANA_BASES_MAX) manaBases.length = MANA_BASES_MAX;
+
+    saveManaBases();
+    renderManaBases();
+    feedback(manaSaveFeedback,
+      existing >= 0 ? 'Base « ' + name + ' » mise à jour.' : 'Base « ' + name + ' » enregistrée.',
+      "info");
+  });
+
+  document.getElementById("manaExportBtn").addEventListener("click", () => {
+    const name = (manaBaseNameEl.value || "Base sans nom").trim();
+    manaTransferEl.value = JSON.stringify({ name: name, data: snapshotManaBase() });
+    manaTransferEl.focus();
+    manaTransferEl.select();
+    feedback(manaTransferFeedback, "Code généré : copiez-le, puis collez-le sur l'autre appareil.", "info");
+  });
+
+  document.getElementById("manaImportBtn").addEventListener("click", () => {
+    const raw = (manaTransferEl.value || "").trim();
+    if (!raw){
+      feedback(manaTransferFeedback, "Collez d'abord un code exporté.", "error");
+      return;
+    }
+    let parsed;
+    try{ parsed = JSON.parse(raw); }
+    catch(e){
+      feedback(manaTransferFeedback, "Ce code n'est pas valide : vérifiez qu'il a été copié en entier.", "error");
+      return;
+    }
+    const snap = parsed && parsed.data ? parsed.data : parsed;
+    if (!snap || !snap.steppers){
+      feedback(manaTransferFeedback, "Ce code ne contient pas de base de mana exploitable.", "error");
+      return;
+    }
+    applyManaBase(snap);
+    const name = (parsed && parsed.name) ? parsed.name : "Base importée";
+    manaBaseNameEl.value = name;
+    feedback(manaTransferFeedback,
+      'Base « ' + name + ' » importée. Appuyez sur « Enregistrer ma base » pour la conserver sur cet appareil.',
+      "info");
+  });
+
+  loadManaBases();
+  renderManaBases();
 
   /* Initial render */
   refreshColorDependentUI();
