@@ -615,6 +615,26 @@
     cursor: pointer;
   }
   .life-adjust-btn:hover{ border-color: var(--accent); color: var(--accent-strong); }
+  .life-fetch-btn{ letter-spacing: 0.04em; font-weight: 700; }
+
+  /* Cumul affiché brièvement de part et d'autre des boutons ± : confirme
+     visuellement combien de points viennent d'être retirés ou gagnés. */
+  .life-controls{ position: relative; }
+  .delta-flash{
+    position:absolute;
+    top:50%;
+    transform: translateY(-50%);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-weight:700;
+    font-size: clamp(0.9rem, 2.6vh, 1.3rem);
+    pointer-events:none;
+    opacity:0;
+    transition: opacity .18s ease;
+    white-space:nowrap;
+  }
+  .delta-flash.visible{ opacity:1; }
+  .delta-flash.loss{ right: calc(100% + 8px); color: var(--danger); }
+  .delta-flash.gain{ left: calc(100% + 8px); color: var(--accent-strong); }
 
   /* Ligne des compteurs permanents : taxe de commandant à gauche, poison à droite.
      Ils se font face pour éviter toute erreur de saisie entre les deux. */
@@ -762,12 +782,21 @@
     background: var(--bg);
     display:flex;
     flex-direction:column;
-    width: 100vw;
-    height: 100vh;
-    height: 100dvh;
+    /* « inset: 0 » suffit à couvrir la fenêtre. Les width/height en 100vw/100dvh
+       étaient redondants et, sur tablette en paysage, pouvaient dépasser la zone
+       réellement visible : la page paraissait alors zoomée. */
   }
   /* Zones haute et basse : grille de 1 ou 2 blocs selon le nombre de joueurs. */
-  body.fs-locked{ overflow: hidden; position: fixed; width: 100%; }
+  /* Verrou du défilement : on fige le corps aux dimensions exactes de la fenêtre.
+     « width:100% » seul laissait la largeur être calculée sur le document, ce qui
+     décalait la mise en page en paysage sur tablette. */
+  body.fs-locked{
+    overflow: hidden;
+    position: fixed;
+    inset: 0;
+    width: auto;
+    height: auto;
+  }
 
   .fs-zone{
     flex: 1;
@@ -929,6 +958,77 @@
   .fs-timer-rotated{ transform: rotate(180deg); }
   .fs-dice-panel{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:center; }
   .fs-strip-actions{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:center; }
+
+  /* Tours additionnels : n'apparaissent qu'une fois le temps de ronde écoulé. */
+  #fs-timer-btn.is-active{ color: var(--accent-strong); border-color: var(--accent); }
+
+  .fs-extra-turns{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:center; }
+  .fs-extra-label{ font-size:0.72rem; color: var(--text-muted); text-transform:uppercase; letter-spacing:0.04em; }
+  .fs-extra-boxes{ display:flex; gap:6px; }
+  .fs-extra-box{
+    width: clamp(28px, 4.6vh, 36px);
+    height: clamp(28px, 4.6vh, 36px);
+    border:1px solid var(--border);
+    border-radius:6px;
+    background: var(--bg);
+    color: var(--text-muted);
+    font-weight:700;
+    font-size: clamp(0.8rem, 2.2vh, 1rem);
+    cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    padding:0;
+  }
+  .fs-extra-box:hover{ border-color: var(--accent); }
+  .fs-extra-box.done{
+    background: var(--accent-gradient);
+    border-color: transparent;
+    color: var(--bg);
+  }
+
+  /* Ressources en plein écran : cibles agrandies pour être utilisables au doigt. */
+  .fs-block .res-btn{ width:30px; height:30px; font-size:1rem; }
+  .fs-block .res-val{ font-size:0.95rem; min-width:22px; }
+  .fs-block .res-item{ font-size:0.78rem; }
+  .fs-block .res-pip{ width:14px; height:14px; }
+  .fs-block .res-label .res-icon{ width:14px; height:14px; }
+  .fs-block .res-grid{ gap:6px 10px; }
+  .fs-block .res-toggle{ font-size:0.68rem; padding:6px 0 3px; }
+  .fs-block .res-panel.open{ max-height: min(240px, 30vh); }
+  .fs-zone[data-cols="2"] .fs-block .res-btn{ width:26px; height:26px; font-size:0.9rem; }
+  .fs-zone[data-cols="2"] .fs-block .res-val{ font-size:0.85rem; min-width:18px; }
+
+  /* ---------- Tablettes : ressources sur le côté du joueur ----------
+     Sur les écrans larges, le tiroir occupe la gauche du bloc en colonne défilante :
+     les points de vie gardent toute la hauteur et les compteurs restent atteignables. */
+  @media (min-width: 700px){
+    .fs-block:has(.res-panel.open){
+      display:grid;
+      grid-template-columns: minmax(150px, 26%) 1fr;
+      grid-template-rows: auto 1fr auto;
+      column-gap: 12px;
+      align-items:center;
+    }
+    .fs-block:has(.res-panel.open) .life-player-name{ grid-column:2; grid-row:1; }
+    .fs-block:has(.res-panel.open) .life-mid{ grid-column:2; grid-row:2; }
+    .fs-block:has(.res-panel.open) .life-bottom{
+      grid-column:1; grid-row:1 / span 3;
+      align-self:stretch;
+      justify-content:flex-start;
+      border-right:1px solid var(--border);
+      padding-right:10px;
+      min-height:0;
+    }
+    .fs-block:has(.res-panel.open) .counter-row{ margin-top:8px; }
+    /* Ressources empilées en une colonne, défilables. */
+    .fs-block:has(.res-panel.open) .res-grid{ grid-template-columns: 1fr; gap:8px; }
+    .fs-block:has(.res-panel.open) .res-panel.open{
+      max-height:none;
+      flex:1 1 auto;
+      overflow-y:auto;
+    }
+    .fs-block:has(.res-panel.open) .res-btn{ width:32px; height:32px; font-size:1.05rem; }
+    .fs-block:has(.res-panel.open) .res-item{ font-size:0.82rem; }
+  }
 
   /* ---------- Paysage / écrans bas : bandeau central compacté ---------- */
   @media (orientation: landscape) and (max-height: 560px){
@@ -1979,6 +2079,7 @@
   .modal-box p{ white-space: pre-line; margin: 0 0 18px; font-size: 0.9rem; color: var(--text-muted); line-height: 1.45; }
   .modal-actions{ display:flex; flex-direction:column; gap: 8px; }
   .modal-actions button{ width: 100%; }
+  .modal-actions button:disabled{ opacity: 0.45; cursor: default; }
 
   @media (max-width:560px){
     /* Panneaux longs sur petit écran : on gagne de la place et de la largeur. */
@@ -2203,7 +2304,7 @@
         <div class="fs-zone fs-zone-top" id="fs-zone-top"></div>
 
         <div class="fs-center-strip">
-          <span class="timer-display round-timer-display fs-timer-rotated" hidden></span>
+          <span class="timer-display fs-timer-display fs-timer-rotated" hidden></span>
           <div class="fs-dice-panel">
             <button class="secondary dice-btn" data-die="6" type="button" aria-label="Lancer un dé à 6 faces"><span class="die-icon"></span>D6</button>
             <button class="secondary dice-btn" data-die="12" type="button" aria-label="Lancer un dé à 12 faces"><span class="die-icon"></span>D12</button>
@@ -2215,8 +2316,14 @@
             <button class="monarch-btn daynight-btn" id="fs-daynight-btn" type="button" aria-haspopup="dialog" aria-label="Cycle jour/nuit"></button>
           </div>
           <div class="dice-result" aria-live="polite"></div>
-          <span class="timer-display round-timer-display" hidden></span>
+          <span class="timer-display fs-timer-display" hidden></span>
+          <div class="fs-extra-turns" id="fs-extra-turns" hidden>
+            <span class="fs-extra-label">Tours additionnels</span>
+            <div class="fs-extra-boxes" id="fs-extra-boxes"></div>
+          </div>
           <div class="fs-strip-actions">
+            <button class="secondary" id="fs-timer-btn" type="button" aria-label="Chrono">⏱ Chrono</button>
+            <button class="secondary" id="fs-swap-btn" type="button" aria-label="Inverser la position des joueurs">⇅ Inverser</button>
             <button class="secondary" id="fs-settings-btn" type="button" aria-label="Réglages de la partie">⚙ Réglages</button>
             <button class="secondary" id="fs-restart-btn" type="button">⟲ Relancer le match</button>
             <button class="secondary" id="fs-exit-btn" type="button">✕ Quitter</button>
@@ -2817,8 +2924,23 @@
   // NOTE INTERNE : à chaque nouvelle version, ajouter une entrée EN TÊTE de CHANGELOG
   // ({ version, date, changes: [...] }) et mettre APP_VERSION à jour. Le pied de page
   // et l'onglet « Version » des réglages se mettent à jour automatiquement.
-  const APP_VERSION = '1.1';
+  const APP_VERSION = '1.2';
   const CHANGELOG = [
+    {
+      version: '1.2',
+      date: '2026',
+      changes: [
+        'Points de vie : nouveaux boutons −2, −3, −5, FETCH, +5, +3 ; le fetch retire 1 point et apparaît comme tel dans l\'historique.',
+        'Points de vie : le cumul des variations s\'affiche brièvement à côté des boutons pour confirmer la saisie.',
+        'Plein écran : cases des 5 tours additionnels, affichées dès la fin du temps de ronde.',
+        'Plein écran : bouton pour inverser la position des joueurs.',
+        'Plein écran : bouton Chrono — suivi du chrono de tournoi, ou chrono indépendant avec durée au choix, relançable.',
+        'Plein écran : « Relancer » propose désormais de repartir avec les mêmes joueurs ou d\'en changer sans quitter l\'affichage.',
+        'Plein écran : zone des ressources agrandie, et placée sur le côté du joueur sur tablette.',
+        'Réglages : bouton de recherche de mise à jour.',
+        'Correction : affichage anormalement agrandi en plein écran sur tablette en mode paysage.'
+      ]
+    },
     {
       version: '1.1',
       date: '2026',
@@ -2849,9 +2971,53 @@
     }
   ];
 
+  // Recherche de mise à jour : on demande au service worker de vérifier le serveur.
+  // Si une nouvelle version est en attente, on l'active et on recharge.
+  function checkForUpdate(){
+    const fb = document.getElementById('update-feedback');
+    const btn = document.getElementById('check-update-btn');
+    if(!fb) return;
+    fb.hidden = false;
+    fb.className = 'alert info';
+    fb.textContent = 'Recherche en cours…';
+    if(btn) btn.disabled = true;
+
+    const done = (msg, kind) => {
+      fb.className = 'alert ' + (kind || 'info');
+      fb.textContent = msg;
+      if(btn) btn.disabled = false;
+    };
+
+    if(!('serviceWorker' in navigator) || location.protocol === 'file:'){
+      done("La recherche de mise à jour n'est disponible que depuis le site en ligne.", 'info');
+      return;
+    }
+    navigator.serviceWorker.getRegistration().then(reg => {
+      if(!reg){
+        done("Aucune installation détectée : rechargez la page pour obtenir la dernière version.", 'info');
+        return;
+      }
+      return reg.update().then(() => {
+        // installing / waiting : une version plus récente a été trouvée.
+        const pending = reg.installing || reg.waiting;
+        if(pending){
+          done('Nouvelle version installée. Redémarrage…', 'info');
+          if(reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+          setTimeout(() => { try{ location.reload(); }catch(e){} }, 1200);
+        } else {
+          done('Votre application est déjà à jour.', 'info');
+        }
+      });
+    }).catch(() => {
+      done("Impossible de vérifier pour le moment : vérifiez votre connexion.", 'error');
+    });
+  }
+
   function buildVersionHtml(){
     return '<h4>Version ' + escapeHtml(APP_VERSION) + '</h4>' +
       '<p>Application autonome, fonctionnant hors ligne et sans compte.</p>' +
+      '<button type="button" class="secondary" id="check-update-btn">Chercher une mise à jour</button>' +
+      '<div id="update-feedback" class="alert info" hidden style="margin-top:10px;"></div>' +
       CHANGELOG.map(entry =>
         '<div class="changelog-entry">' +
           '<div class="changelog-head">' +
@@ -3259,6 +3425,9 @@
     const clearBtn = wrap.querySelector('#clear-data-btn');
     if(clearBtn) clearBtn.addEventListener('click', confirmClearAppData);
 
+    const updBtn = wrap.querySelector('#check-update-btn');
+    if(updBtn) updBtn.addEventListener('click', checkForUpdate);
+
     const sendBtn = wrap.querySelector('#contact-send-btn');
     if(sendBtn) sendBtn.addEventListener('click', sendContactMessage);
 
@@ -3535,6 +3704,7 @@
       btn.type = 'button';
       btn.className = b.style === 'primary' ? 'primary' : 'secondary';
       btn.textContent = b.label;
+      if(b.disabled) btn.disabled = true;   // option indisponible (ex. aucun tournoi en cours)
       btn.addEventListener('click', () => {
         closeModal();
         if(typeof b.onClick === 'function') b.onClick();
@@ -3730,6 +3900,10 @@
           customTotal: life.customTotal,
           blockThemes: life.blockThemes,
           monarch: life.monarch,
+          extraTurns: life.extraTurns,
+          timerMode: life.timerMode,
+          localTimer: life.localTimer,
+          swapped: life.swapped,
           dayNight: life.dayNight
         },
         prefs: {
@@ -3822,6 +3996,10 @@
       if(Array.isArray(saved.life.resOpen)) life.resOpen = saved.life.resOpen.map(v => !!v);
       else if(typeof saved.life.resOpen === 'boolean') life.resOpen = [saved.life.resOpen, saved.life.resOpen];
       if(Number.isInteger(saved.life.monarch)) life.monarch = saved.life.monarch;
+      if(Array.isArray(saved.life.extraTurns)) life.extraTurns = saved.life.extraTurns.map(v => !!v);
+      if(saved.life.timerMode === 'tournament' || saved.life.timerMode === 'local') life.timerMode = saved.life.timerMode;
+      if(saved.life.localTimer && typeof saved.life.localTimer.endTime === 'number') life.localTimer = saved.life.localTimer;
+      life.swapped = !!saved.life.swapped;
       if(saved.life.dayNight === 'day' || saved.life.dayNight === 'night') life.dayNight = saved.life.dayNight;
     }
   }
@@ -4162,7 +4340,11 @@
     resources: [],              // { tax, energy, mana:{…}, cmd:{…} } par joueur
     resOpen: [],                // tiroir de ressources déplié, par joueur
     monarch: null,              // slot du joueur monarque, ou null
-    dayNight: null              // null (désactivé), 'day' ou 'night'
+    dayNight: null,             // null (désactivé), 'day' ou 'night'
+    extraTurns: [false, false, false, false, false],   // 5 tours additionnels cochés
+    timerMode: null,            // null (aucun), 'tournament' (suivi) ou 'local'
+    localTimer: null,           // { endTime, minutes, soundPlayed } pour le chrono indépendant
+    swapped: false              // zones haute et basse interverties
   };
   const MAX_PLAYERS = 4;
 
@@ -4339,9 +4521,15 @@
 
     const adjust = document.createElement('div');
     adjust.className = 'life-adjust-row';
-    adjust.innerHTML = [-3, -5, 3, 5].map(d =>
-      '<button class="life-adjust-btn life-delta-btn" data-slot="' + slot + '" data-delta="' + d + '" type="button">' + (d > 0 ? '+' + d : d) + '</button>'
-    ).join('');
+    // Ordre voulu : pertes décroissantes, fetch au centre, puis gains.
+    const adjBtn = (d) => '<button class="life-adjust-btn life-delta-btn" data-slot="' + slot +
+      '" data-delta="' + d + '" type="button">' + (d > 0 ? '+' + d : d) + '</button>';
+    adjust.innerHTML =
+      adjBtn(-2) + adjBtn(-3) + adjBtn(-5) +
+      // Le fetch coûte 1 point de vie : bouton distinct pour le retrouver dans l'historique.
+      '<button class="life-adjust-btn life-fetch-btn" data-slot="' + slot +
+        '" type="button" title="Terrain de récupération : −1 point de vie">FETCH</button>' +
+      adjBtn(5) + adjBtn(3);
     mid.appendChild(adjust);
     block.appendChild(mid);
 
@@ -4442,7 +4630,8 @@
     const bottomCount = (n === 4) ? 2 : 1;
     const bottom = [], top = [];
     for(let s = 1; s <= n; s++) (s <= bottomCount ? bottom : top).push(s);
-    return { bottom, top };
+    // Inversion demandée : les deux zones échangent leur contenu.
+    return life.swapped ? { bottom: top, top: bottom } : { bottom, top };
   }
 
   function renderLifeBlocks(){
@@ -4700,7 +4889,10 @@
     const who = life.names[h.slot - 1] || ('Joueur ' + h.slot);
     const sign = h.delta > 0 ? '+' : '';
     const dirClass = h.delta > 0 ? 'up' : 'down';
-    const label = h.kind === 'poison' ? 'poison' : (h.kind === 'tax' ? 'taxe' : 'PV');
+    const label = h.kind === 'poison' ? 'poison'
+                : h.kind === 'tax' ? 'taxe'
+                : h.kind === 'fetch' ? 'PV — Fetch'
+                : 'PV';
     return '<div class="life-history-entry">' +
       '<span class="life-history-time">' + h.time + '</span>' +
       '<span class="life-history-who">' + escapeHtml(who) + '</span>' +
@@ -4731,11 +4923,43 @@
     }
   }
 
-  function changeLife(slot, delta){
+  function changeLife(slot, delta, cause){
     life.totals[slot - 1] += delta;
     updateLifeBlockDom(slot);
-    logHistory(slot, 'life', delta, life.totals[slot - 1]);
+    // « cause » distingue un fetchland d'une perte ordinaire dans l'historique.
+    logHistory(slot, cause === 'fetch' ? 'fetch' : 'life', delta, life.totals[slot - 1]);
+    showDeltaFlash(slot, delta);
     persistState();
+  }
+
+  // Cumul éphémère affiché près des boutons ± : les variations rapprochées
+  // s'additionnent, puis l'affichage s'efface après un court délai.
+  const deltaFlash = {};   // slot -> { sum, timer }
+  const DELTA_FLASH_MS = 1600;
+  function showDeltaFlash(slot, delta){
+    const st = deltaFlash[slot] || (deltaFlash[slot] = { sum: 0, timer: null });
+    // Un changement de sens repart de zéro : additionner +5 puis −3 n'aurait pas de sens.
+    if(st.sum !== 0 && Math.sign(st.sum) !== Math.sign(delta)) st.sum = 0;
+    st.sum += delta;
+    if(st.timer) clearTimeout(st.timer);
+    renderDeltaFlash(slot, st.sum);
+    st.timer = setTimeout(() => { st.sum = 0; st.timer = null; renderDeltaFlash(slot, 0); }, DELTA_FLASH_MS);
+  }
+  function renderDeltaFlash(slot, sum){
+    eachInBlocks('.life-controls', ctrl => {
+      if(parseInt(ctrl.querySelector('.life-total-display').dataset.slot, 10) !== slot) return;
+      let el = ctrl.querySelector('.delta-flash');
+      if(!el){
+        el = document.createElement('span');
+        el.className = 'delta-flash';
+        ctrl.appendChild(el);
+      }
+      if(!sum){ el.classList.remove('visible'); return; }
+      el.textContent = (sum > 0 ? '+' : '') + sum;
+      el.classList.toggle('loss', sum < 0);
+      el.classList.toggle('gain', sum > 0);
+      el.classList.add('visible');
+    });
   }
 
   function changePoison(slot, delta){
@@ -4813,6 +5037,12 @@
   function handleLifeDelegatedClick(e){
     // Un maintien vient d'appliquer les incréments : on ignore le clic final.
     if(holdState.fired){ holdState.fired = false; return; }
+    const fetchBtn = e.target.closest('.life-fetch-btn');
+    if(fetchBtn){
+      const slot = parseInt(fetchBtn.dataset.slot, 10);
+      if(slot) changeLife(slot, -1, 'fetch');
+      return;
+    }
     const lifeBtn = e.target.closest('.life-delta-btn');
     if(lifeBtn){
       const slot = parseInt(lifeBtn.dataset.slot, 10);
@@ -5289,6 +5519,265 @@
     else setDayNight(life.dayNight === 'day' ? 'night' : 'day');   // bascule directe
   });
 
+  /* ---------- Chrono du plein écran ----------
+     Deux sources possibles : le chrono de ronde du tournoi (simple suivi, en
+     lecture seule) ou un chrono local, indépendant, avec durée au choix.
+     Le chrono local appartient à la table : il survit à une relance de match
+     avec les mêmes joueurs, mais repart à zéro si les joueurs changent. */
+  let fsTimerInterval = null;
+
+  function localTimerRemaining(){
+    const t = life.localTimer;
+    if(!t || t.endTime == null) return null;
+    return Math.max(0, Math.round((t.endTime - Date.now()) / 1000));
+  }
+
+  // Temps restant du chrono effectivement suivi en plein écran.
+  function fsTimerRemaining(){
+    if(life.timerMode === 'tournament') return roundTimerRemaining();
+    if(life.timerMode === 'local') return localTimerRemaining();
+    return null;
+  }
+
+  function updateFsTimerDisplays(){
+    const remaining = fsTimerRemaining();
+    document.querySelectorAll('.fs-timer-display').forEach(el => {
+      if(remaining == null){ el.hidden = true; return; }
+      el.hidden = false;
+      if(remaining <= 0){
+        el.textContent = 'Temps écoulé';
+        el.classList.add('expired');
+      } else {
+        el.textContent = formatTime(remaining);
+        el.classList.remove('expired');
+      }
+    });
+    const btn = document.getElementById('fs-timer-btn');
+    if(btn){
+      btn.classList.toggle('is-active', remaining != null);
+      btn.textContent = (remaining == null) ? '⏱ Chrono'
+        : (remaining <= 0 ? '⏱ Terminé' : '⏱ ' + formatTime(remaining));
+    }
+    if(typeof applyExtraTurns === 'function') applyExtraTurns();
+  }
+
+  function stopFsTimerLoop(){
+    if(fsTimerInterval){ clearInterval(fsTimerInterval); fsTimerInterval = null; }
+  }
+  function startFsTimerLoop(){
+    stopFsTimerLoop();
+    fsTimerInterval = setInterval(() => {
+      const remaining = fsTimerRemaining();
+      if(remaining === 0){
+        // Le chrono local sonne une fois ; celui du tournoi sonne déjà de son côté.
+        if(life.timerMode === 'local' && life.localTimer && !life.localTimer.soundPlayed){
+          life.localTimer.soundPlayed = true;
+          playTimerEndSound();
+          persistState();
+        }
+        updateFsTimerDisplays();
+        stopFsTimerLoop();
+        return;
+      }
+      if(remaining == null){ updateFsTimerDisplays(); stopFsTimerLoop(); return; }
+      updateFsTimerDisplays();
+    }, 250);
+  }
+
+  function startLocalTimer(minutes){
+    ensureAudioContext();
+    const m = Math.max(1, parseInt(minutes, 10) || 50);
+    life.timerMode = 'local';
+    life.localTimer = { endTime: Date.now() + m * 60000, minutes: m, soundPlayed: false };
+    updateFsTimerDisplays();
+    startFsTimerLoop();
+    persistState();
+  }
+
+  function followTournamentTimer(){
+    life.timerMode = 'tournament';
+    updateFsTimerDisplays();
+    startFsTimerLoop();
+    persistState();
+  }
+
+  function clearFsTimer(){
+    life.timerMode = null;
+    life.localTimer = null;
+    stopFsTimerLoop();
+    updateFsTimerDisplays();
+    persistState();
+  }
+
+  // Relance : remet le chrono suivi à sa durée d'origine.
+  function restartFsTimer(){
+    if(life.timerMode === 'local' && life.localTimer){
+      startLocalTimer(life.localTimer.minutes);
+    } else if(life.timerMode === 'tournament'){
+      resetRoundTimer();
+      startRoundTimer();
+      updateFsTimerDisplays();
+      startFsTimerLoop();
+    }
+  }
+
+  function openFsTimerPicker(){
+    const tournamentReady = tournament.rounds.length > 0;
+    const buttons = [];
+
+    buttons.push({
+      label: tournamentReady ? 'Suivre le chrono du tournoi' : 'Suivre le chrono du tournoi (aucun tournoi en cours)',
+      style: life.timerMode === 'tournament' ? 'primary' : 'secondary',
+      disabled: !tournamentReady,
+      onClick: followTournamentTimer
+    });
+
+    buttons.push({
+      label: 'Lancer un chrono indépendant…',
+      style: 'secondary',
+      onClick: openLocalTimerPicker
+    });
+
+    if(life.timerMode){
+      buttons.push({
+        label: 'Relancer le chrono',
+        style: 'secondary',
+        onClick: () => {
+          if(life.timerMode === 'tournament'){
+            // Le chrono du tournoi est partagé par toutes les tables : on confirme.
+            openModal('Relancer le chrono du tournoi ?',
+              'Ce chrono est celui de la ronde en cours : le relancer affectera toutes les tables du tournoi.',
+              [
+                { label: 'Oui, relancer la ronde', style: 'primary', onClick: restartFsTimer },
+                { label: 'Annuler', style: 'secondary', onClick: openFsTimerPicker }
+              ]);
+          } else {
+            restartFsTimer();
+          }
+        }
+      });
+      buttons.push({ label: 'Masquer le chrono', style: 'secondary', onClick: clearFsTimer });
+    }
+
+    buttons.push({ label: 'Fermer', style: 'secondary' });
+
+    openModal('Chrono',
+      tournamentReady
+        ? 'Suivez le chrono de la ronde, ou lancez un chrono propre à cette table.'
+        : 'Aucun tournoi n\'est en cours : vous pouvez lancer un chrono propre à cette table.',
+      buttons);
+  }
+
+  function openLocalTimerPicker(){
+    clearModalDynamic();
+    modalTitle.textContent = 'Chrono indépendant';
+    modalMessage.textContent = 'Choisissez une durée, ou saisissez la vôtre.';
+    modalMessage.hidden = false;
+    modalActions.innerHTML = '';
+
+    const wrap = document.createElement('div');
+    wrap.className = 'modal-dynamic';
+    const picker = document.createElement('div');
+    picker.className = 'score-picker';
+    let chosen = (life.localTimer && life.localTimer.minutes) || 50;
+    [5, 10, 25, 50].forEach(m => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'score-btn' + (m === chosen ? ' selected' : '');
+      b.textContent = m + ' min';
+      b.addEventListener('click', () => {
+        chosen = m;
+        picker.querySelectorAll('.score-btn').forEach(x => x.classList.remove('selected'));
+        b.classList.add('selected');
+        custom.value = m;
+      });
+      picker.appendChild(b);
+    });
+    wrap.appendChild(picker);
+
+    const field = document.createElement('div');
+    field.className = 'field';
+    field.style.marginTop = '12px';
+    field.innerHTML = '<label for="fs-timer-minutes">Durée personnalisée (minutes)</label>';
+    const custom = document.createElement('input');
+    custom.type = 'number'; custom.id = 'fs-timer-minutes';
+    custom.min = '1'; custom.step = '1'; custom.inputMode = 'numeric';
+    custom.value = chosen;
+    custom.addEventListener('input', () => {
+      custom.value = custom.value.replace(/[^\d]/g, '');
+      picker.querySelectorAll('.score-btn').forEach(x => x.classList.remove('selected'));
+    });
+    field.appendChild(custom);
+    wrap.appendChild(field);
+    modalActions.parentNode.insertBefore(wrap, modalActions);
+
+    const go = document.createElement('button');
+    go.type = 'button'; go.className = 'primary'; go.textContent = 'Lancer le chrono';
+    go.addEventListener('click', () => {
+      const m = parseInt(custom.value, 10);
+      if(!Number.isInteger(m) || m < 1){
+        modalMessage.textContent = 'Indiquez une durée valide, en minutes.';
+        return;
+      }
+      startLocalTimer(m);
+      closeModal();
+    });
+    const back = document.createElement('button');
+    back.type = 'button'; back.className = 'secondary'; back.textContent = 'Retour';
+    back.addEventListener('click', openFsTimerPicker);
+    modalActions.appendChild(go);
+    modalActions.appendChild(back);
+    modalOverlay.hidden = false;
+  }
+
+  document.getElementById('fs-timer-btn').addEventListener('click', openFsTimerPicker);
+
+  // ---------- Tours additionnels ----------
+  // À la fin du temps de ronde, les joueurs disposent de 5 tours supplémentaires :
+  // ces cases permettent de les décompter d'un simple appui.
+  const EXTRA_TURNS = 5;
+  const extraTurnsWrap = document.getElementById('fs-extra-turns');
+  const extraBoxesWrap = document.getElementById('fs-extra-boxes');
+
+  function buildExtraTurns(){
+    extraBoxesWrap.innerHTML = '';
+    for(let i = 0; i < EXTRA_TURNS; i++){
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'fs-extra-box';
+      b.dataset.turn = i;
+      b.textContent = String(i + 1);
+      b.setAttribute('aria-pressed', 'false');
+      b.addEventListener('click', () => {
+        life.extraTurns[i] = !life.extraTurns[i];
+        applyExtraTurns();
+        persistState();
+      });
+      extraBoxesWrap.appendChild(b);
+    }
+  }
+
+  function applyExtraTurns(){
+    // Visibles uniquement quand le chrono est arrivé à son terme.
+    const finished = fsTimerRemaining() === 0;
+    extraTurnsWrap.hidden = !finished;
+    extraBoxesWrap.querySelectorAll('.fs-extra-box').forEach(b => {
+      const done = !!life.extraTurns[parseInt(b.dataset.turn, 10)];
+      b.classList.toggle('done', done);
+      b.setAttribute('aria-pressed', String(done));
+    });
+  }
+
+  // ---------- Inversion des joueurs ----------
+  // Intervertit les zones haute et basse sans toucher aux données : pratique
+  // quand les joueurs changent de côté de la table.
+  function swapPlayers(){
+    life.swapped = !life.swapped;
+    renderLifeBlocks();
+    persistState();
+  }
+  document.getElementById('fs-swap-btn').addEventListener('click', swapPlayers);
+
   function enterLifeFullscreen(){
     lifeFullscreenOverlay.hidden = false;
     // On bloque le défilement de la page derrière, sinon un geste vertical sur
@@ -5298,6 +5787,9 @@
     applyAllBlockThemes();
     applyMonarch();
     applyDayNight();
+    applyExtraTurns();
+    updateFsTimerDisplays();
+    if(fsTimerRemaining() > 0) startFsTimerLoop();   // reprise après un aller-retour
     requestScreenLock();
     updateRoundTimerDisplays();
     // La CSS de l'overlay couvre déjà tout l'écran ; la Fullscreen API est un bonus
@@ -5312,6 +5804,7 @@
   }
 
   function exitLifeFullscreen(){
+    stopFsTimerLoop();   // inutile de décompter hors du plein écran
     document.body.classList.remove('fs-locked');
     releaseScreenLock();
     if(document.fullscreenElement && document.exitFullscreen){
@@ -5422,12 +5915,86 @@
 
   document.getElementById('fs-settings-btn').addEventListener('click', openLifeSettings);
 
+  // Nouveau match depuis le plein écran : on peut repartir avec les mêmes joueurs
+  // ou en changer, sans avoir à quitter l'affichage de table.
+  function openNewMatchPicker(){
+    clearModalDynamic();
+    modalTitle.textContent = 'Nouveau match';
+    modalMessage.textContent = 'Choisissez les joueurs, puis lancez le match. Les compteurs repartiront de ' + life.startTotal + '.';
+    modalMessage.hidden = false;
+    modalActions.innerHTML = '';
+
+    const wrap = document.createElement('div');
+    wrap.className = 'modal-dynamic';
+
+    // Noms disponibles : carnet enregistré + joueurs de la partie en cours.
+    const names = [];
+    roster.forEach(p => { if(!names.some(n => n.toLowerCase() === p.name.toLowerCase())) names.push(p.name); });
+    state.players.forEach(n => { if(!names.some(x => x.toLowerCase() === n.toLowerCase())) names.push(n); });
+    life.names.forEach(n => { if(n && !names.some(x => x.toLowerCase() === n.toLowerCase())) names.push(n); });
+
+    const selects = [];
+    for(let s = 1; s <= life.playerCount; s++){
+      const field = document.createElement('div');
+      field.className = 'field';
+      field.style.marginBottom = '10px';
+      const lab = document.createElement('label');
+      lab.textContent = 'Joueur ' + s;
+      const sel = document.createElement('select');
+      sel.innerHTML = '<option value="">— Nom aléatoire —</option>' +
+        names.map(n => '<option value="' + escapeHtml(n) + '">' +
+          (isRegistered(n) ? '★ ' : '') + escapeHtml(n) + '</option>').join('');
+      if(life.names[s - 1]) sel.value = life.names[s - 1];
+      field.appendChild(lab); field.appendChild(sel);
+      wrap.appendChild(field);
+      selects.push(sel);
+    }
+    modalActions.parentNode.insertBefore(wrap, modalActions);
+
+    const go = document.createElement('button');
+    go.type = 'button'; go.className = 'primary'; go.textContent = 'Lancer le match';
+    go.addEventListener('click', () => {
+      const chosen = selects.map(s => s.value.trim());
+      const picked = chosen.filter(Boolean);
+      if(new Set(picked.map(n => n.toLowerCase())).size !== picked.length){
+        modalMessage.textContent = 'Chaque joueur doit être différent.';
+        return;
+      }
+      // Les places laissées libres reçoivent un nom aléatoire encore inutilisé.
+      const pool = shuffle([...RANDOM_NAMES]).filter(x => !picked.includes(x));
+      const finalNames = chosen.map((n, i) => n || pool.pop() || ('Joueur ' + (i + 1)));
+
+      const joueursChanges = finalNames.some((n, i) => n !== life.names[i]);
+      life.names = finalNames;
+      finalNames.forEach((n, i) => {
+        const theme = themeForPlayerName(n);
+        life.blockThemes[i] = theme || null;
+      });
+      // Nouveaux joueurs = nouvelle table : le chrono indépendant repart de zéro.
+      // Une simple relance avec les mêmes joueurs le conserve.
+      if(joueursChanges && life.timerMode === 'local') clearFsTimer();
+      restartLifeMatch();
+      renderLifeBlocks();
+      renderLifeHistory();
+      closeModal();
+    });
+
+    const cancel = document.createElement('button');
+    cancel.type = 'button'; cancel.className = 'secondary'; cancel.textContent = 'Annuler';
+    cancel.addEventListener('click', closeModal);
+
+    modalActions.appendChild(go);
+    modalActions.appendChild(cancel);
+    modalOverlay.hidden = false;
+  }
+
   document.getElementById('fs-restart-btn').addEventListener('click', () => {
     openModal(
-      'Relancer le match',
-      'Les points de vie et les compteurs poison des deux joueurs repartiront de ' + life.startTotal + '. L\'historique de la partie sera effacé.',
+      'Relancer la partie',
+      'Relancer remet les compteurs à ' + life.startTotal + ' avec les mêmes joueurs. Un nouveau match permet aussi d\'en changer.',
       [
-        { label: 'Relancer le match', style: 'primary', onClick: restartLifeMatch },
+        { label: 'Relancer avec les mêmes joueurs', style: 'primary', onClick: restartLifeMatch },
+        { label: 'Nouveau match (changer les joueurs)', style: 'secondary', onClick: openNewMatchPicker },
         { label: 'Annuler', style: 'secondary' }
       ]
     );
@@ -5839,6 +6406,7 @@
   function tickRoundTimer(){
     const remaining = roundTimerRemaining();
     if(remaining === 0){
+      if(typeof applyExtraTurns === 'function') applyExtraTurns();   // les tours additionnels apparaissent
       // Fin atteinte : on arrête l'intervalle, on joue le son une seule fois.
       clearInterval(roundTimer.intervalId);
       roundTimer.intervalId = null;
@@ -5866,6 +6434,9 @@
   }
 
   function resetRoundTimer(){
+    // Nouveau round : les tours additionnels repartent à zéro et se masquent.
+    if(life && Array.isArray(life.extraTurns)) life.extraTurns = [false, false, false, false, false];
+    if(typeof applyExtraTurns === 'function') applyExtraTurns();
     if(roundTimer.intervalId) clearInterval(roundTimer.intervalId);
     roundTimer.intervalId = null;
     roundTimer.endTime = null;
@@ -6327,6 +6898,8 @@
   if(footerVersion) footerVersion.textContent = 'v' + APP_VERSION;
   injectDiceIcons();
   injectMonarchIcon();
+  buildExtraTurns();
+  applyExtraTurns();
   applyDayNight();   // pose l'icône lune estompée dès le départ
   resizeLifeArrays(life.playerCount);
   renderLifeBlocks();
