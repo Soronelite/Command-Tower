@@ -617,6 +617,68 @@
   .life-adjust-btn:hover{ border-color: var(--accent); color: var(--accent-strong); }
   .life-fetch-btn{ letter-spacing: 0.04em; font-weight: 700; }
 
+  /* ---------- Suivi des tours ----------
+     Marqueur dans le coin supérieur du bloc, visible seulement si le suivi est
+     activé depuis les réglages de la partie. */
+  .turn-box{
+    position:absolute;
+    top:10px; right:10px;
+    display:none;
+    align-items:center;
+    gap:4px;
+    z-index:3;
+  }
+  .life-fullscreen-overlay[data-turns="on"] .fs-block .turn-box{ display:flex; }
+  .turn-num, .turn-next{
+    min-width: clamp(30px, 4.6vh, 38px);
+    height: clamp(30px, 4.6vh, 38px);
+    border:1px solid var(--border);
+    border-radius:6px;
+    background: var(--bg);
+    color: var(--text-muted);
+    font-weight:700;
+    font-size: clamp(0.82rem, 2.2vh, 1rem);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    cursor:pointer;
+    padding:0 4px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .turn-num{ opacity:0.45; }
+  /* Joueur dont c'est le tour : mis en avant, les autres restent estompés. */
+  .turn-box.is-active .turn-num{
+    opacity:1;
+    background: var(--accent-gradient);
+    border-color: transparent;
+    color: var(--bg);
+  }
+  .turn-next{ opacity:0.55; }
+  .turn-next:hover, .turn-num:hover{ opacity:1; border-color: var(--accent); }
+  /* La pastille de thème cède le coin au marqueur de tour. */
+  .life-fullscreen-overlay[data-turns="on"] .fs-theme-btn{ right:auto; left:10px; }
+
+  /* Joueur éliminé : la zone s'estompe pour se distinguer d'un coup d'œil,
+     surtout à trois ou quatre joueurs. Elle reste entièrement utilisable —
+     l'estompage informe, il n'interdit rien. */
+  /* Suivi des tours actif : les joueurs qui n'ont pas la main sont très
+     légèrement estompés — assez pour guider l'œil, pas assez pour gêner. */
+  .life-fullscreen-overlay[data-turns="on"] .fs-block:not(.is-turn){
+    opacity: 0.82;
+    transition: opacity .25s ease;
+  }
+
+  /* L'élimination prime sur l'estompage de tour : règle placée après et
+     renforcée en spécificité pour ne pas être écrasée. */
+  .fs-block.is-defeated,
+  .life-block.is-defeated,
+  .life-fullscreen-overlay[data-turns="on"] .fs-block.is-defeated{
+    opacity: 0.42;
+    transition: opacity .25s ease;
+  }
+  .fs-block.is-defeated:focus-within,
+  .life-block.is-defeated:focus-within,
+  .fs-block.is-defeated:hover,
+  .life-block.is-defeated:hover{ opacity: 0.75; }
+
   /* Cumul affiché brièvement de part et d'autre des boutons ± : confirme
      visuellement combien de points viennent d'être retirés ou gagnés. */
   .life-controls{ position: relative; }
@@ -1056,8 +1118,20 @@
   .die-icon{ width:18px; height:18px; display:inline-block; vertical-align:-3px; }
   .die-icon svg{ width:100%; height:100%; display:block; }
   .dice-btn{ display:inline-flex; align-items:center; gap:6px; }
+  /* Le toss adopte exactement la boîte des dés : même icône, même écart. */
+  .toss-btn{ display:inline-flex; align-items:center; gap:6px; }
+  .toss-icon{
+    width:18px; height:18px;
+    display:inline-flex; align-items:center; justify-content:center;
+    font-size:15px; line-height:1;
+  }
+  .fs-dice-panel .toss-icon{ width:20px; height:20px; font-size:17px; }
+  /* Masqué une fois le tirage effectué, jusqu'au match suivant. */
+  .toss-btn[hidden]{ display:none; }
   /* La pièce est un emoji : on le cale sur la même boîte que les icônes de dés. */
-  .coin-btn{ display:inline-flex; align-items:center; gap:6px; }
+  .coin-btn{ display:inline-flex; align-items:center; justify-content:center; gap:6px; }
+  /* Sans libellé, le bouton reste carré plutôt que de s'étirer avec les dés. */
+  .dice-panel .coin-btn{ flex:0 0 auto; min-width:44px; padding-left:10px; padding-right:10px; }
   .coin-icon{
     width:18px; height:18px;
     display:inline-flex;
@@ -1115,9 +1189,7 @@
   .life-fullscreen-overlay[data-count="4"] .fs-theme-btn,
   .life-fullscreen-overlay[data-count="3"] .fs-theme-menu,
   .life-fullscreen-overlay[data-count="4"] .fs-theme-menu{ display: none; }
-  #fs-settings-btn{ display: none; }
-  .life-fullscreen-overlay[data-count="3"] #fs-settings-btn,
-  .life-fullscreen-overlay[data-count="4"] #fs-settings-btn{ display: inline-flex; }
+
 
   /* ---------- Tiroir de ressources (bas de chaque bloc joueur) ---------- */
   .res-drawer{
@@ -2280,10 +2352,11 @@
         <div class="life-blocks-col" id="life-blocks-col"></div>
 
         <div class="dice-panel">
+          <button class="secondary toss-btn" type="button" title="Désigner le premier joueur au hasard" aria-label="Lancer le toss : désigner le premier joueur"><span class="toss-icon" aria-hidden="true">🎯</span>Toss</button>
           <button class="secondary dice-btn" data-die="6" type="button" aria-label="Lancer un dé à 6 faces"><span class="die-icon"></span>D6</button>
           <button class="secondary dice-btn" data-die="12" type="button" aria-label="Lancer un dé à 12 faces"><span class="die-icon"></span>D12</button>
           <button class="secondary dice-btn" data-die="20" type="button" aria-label="Lancer un dé à 20 faces"><span class="die-icon"></span>D20</button>
-          <button class="secondary coin-btn" type="button" aria-label="Lancer une pièce (pile ou face)"><span class="coin-icon" aria-hidden="true">🪙</span>Pile/Face</button>
+          <button class="secondary coin-btn" type="button" title="Pile ou face" aria-label="Lancer une pièce (pile ou face)"><span class="coin-icon" aria-hidden="true">🪙</span></button>
           <div class="dice-result" aria-live="polite"></div>
         </div>
       </div>
@@ -2306,6 +2379,7 @@
         <div class="fs-center-strip">
           <span class="timer-display fs-timer-display fs-timer-rotated" hidden></span>
           <div class="fs-dice-panel">
+            <button class="secondary toss-btn" type="button" title="Désigner le premier joueur au hasard" aria-label="Lancer le toss : désigner le premier joueur"><span class="toss-icon" aria-hidden="true">🎯</span>Toss</button>
             <button class="secondary dice-btn" data-die="6" type="button" aria-label="Lancer un dé à 6 faces"><span class="die-icon"></span>D6</button>
             <button class="secondary dice-btn" data-die="12" type="button" aria-label="Lancer un dé à 12 faces"><span class="die-icon"></span>D12</button>
             <button class="secondary dice-btn" data-die="20" type="button" aria-label="Lancer un dé à 20 faces"><span class="die-icon"></span>D20</button>
@@ -2322,10 +2396,7 @@
             <div class="fs-extra-boxes" id="fs-extra-boxes"></div>
           </div>
           <div class="fs-strip-actions">
-            <button class="secondary" id="fs-timer-btn" type="button" aria-label="Chrono">⏱ Chrono</button>
-            <button class="secondary" id="fs-swap-btn" type="button" aria-label="Inverser la position des joueurs">⇅ Inverser</button>
-            <button class="secondary" id="fs-settings-btn" type="button" aria-label="Réglages de la partie">⚙ Réglages</button>
-            <button class="secondary" id="fs-restart-btn" type="button">⟲ Relancer le match</button>
+            <button class="secondary" id="fs-settings-btn" type="button" aria-haspopup="dialog" aria-label="Réglages de la partie">⚙ Réglages</button>
             <button class="secondary" id="fs-exit-btn" type="button">✕ Quitter</button>
           </div>
         </div>
@@ -2915,11 +2986,6 @@
     }
   ];;
 
-  // Renseignez ici vos coordonnées : chaque entrée devient une ligne du panneau Contact.
-  // Exemple : { label: 'E-mail', value: 'contact@exemple.fr', href: 'mailto:contact@exemple.fr' }
-  const CONTACT_ITEMS = [];
-  const CONTACT_INTRO = "";
-
   // ---------- Version et journal des modifications ----------
   // NOTE INTERNE : à chaque nouvelle version, ajouter une entrée EN TÊTE de CHANGELOG
   // ({ version, date, changes: [...] }) et mettre APP_VERSION à jour. Le pied de page
@@ -2937,6 +3003,14 @@
         'Plein écran : bouton Chrono — suivi du chrono de tournoi, ou chrono indépendant avec durée au choix, relançable.',
         'Plein écran : « Relancer » propose désormais de repartir avec les mêmes joueurs ou d\'en changer sans quitter l\'affichage.',
         'Plein écran : zone des ressources agrandie, et placée sur le côté du joueur sur tablette.',
+        'Plein écran : bouton Chrono — suivi du chrono de ronde du tournoi, ou chrono de table indépendant à durée libre.',
+        'Plein écran : relancer le chrono du tournoi demande une double confirmation, car il concerne toutes les tables.',
+        'Plein écran : le chrono de table repart à zéro quand on change de joueurs, et se conserve lors d\'une simple relance.',
+        'Points de vie : la zone d\'un joueur éliminé (0 PV, 10 poison ou 21 dégâts de commandant) s\'estompe.',
+        'Points de vie : bouton Toss pour désigner le premier joueur au hasard, avec entrée dans l\'historique.',
+        'Plein écran : suivi des tours optionnel — numéro de tour par joueur, joueur actif mis en avant.',
+        'Plein écran : les actions sont regroupées dans un menu Réglages unique (chrono, tours, inversion, couleurs, thème, relance).',
+        'Plein écran : le thème clair / sombre / auto se change sans quitter la partie.',
         'Réglages : bouton de recherche de mise à jour.',
         'Correction : affichage anormalement agrandi en plein écran sur tablette en mode paysage.'
       ]
@@ -3308,8 +3382,25 @@
     if(scopes.indexOf('life') >= 0){
       life.started = false; life.names = []; life.totals = []; life.poison = [];
       life.resources = []; life.history = []; life.monarch = null; life.dayNight = null;
+      // La partie disparaît : son chrono de table aussi, sans quoi il continuerait
+      // de tourner et réapparaîtrait à la prochaine ouverture du plein écran.
+      life.timerMode = null; life.localTimer = null;
+      life.extraTurns = [false, false, false, false, false];
+      life.swapped = false;
     }
-    if(scopes.indexOf('tournament') >= 0){ tournament.rounds = []; tournament.droppedPlayers.clear(); }
+    if(scopes.indexOf('tournament') >= 0){
+      tournament.rounds = [];
+      tournament.droppedPlayers.clear();
+      // Le chrono de ronde appartient au tournoi et sa fin est persistée : sans
+      // cette remise à zéro, la mention « Temps écoulé » réapparaissait sur la
+      // page Points de vie après le rechargement qui suit l'effacement.
+      if(roundTimer.intervalId) clearInterval(roundTimer.intervalId);
+      roundTimer.intervalId = null;
+      roundTimer.endTime = null;
+      roundTimer.soundPlayed = false;
+      // Une table qui suivait ce chrono n'a plus rien à suivre.
+      if(life.timerMode === 'tournament') life.timerMode = null;
+    }
     if(scopes.indexOf('history') >= 0){ tournamentHistory.length = 0; }
     if(scopes.indexOf('roster') >= 0){ roster.length = 0; }
     // Les bases de mana ont leur propre clé : le module du calculateur est autonome.
@@ -3322,6 +3413,14 @@
     persistDisabled = false;
     try{ persistNow(); }catch(e){}
 
+    // L'affichage est rafraîchi immédiatement : on ne dépend pas du rechargement,
+    // qui peut être refusé ou différé selon le contexte.
+    try{
+      invalidateTimerNodes();
+      updateRoundTimerDisplays();
+      updateFsTimerDisplays();
+    }catch(e){ /* sans conséquence */ }
+
     const done = () => { try{ location.reload(); }catch(e){} };
     if(scopes.indexOf('cache') >= 0 && typeof caches !== 'undefined' && caches.keys){
       caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).then(done, done);
@@ -3330,21 +3429,7 @@
     }
   }
 
-  function clearAppData(){
-    // Une sauvegarde temporisée encore en attente réécrirait l'état juste après
-    // l'effacement : on l'annule et on bloque toute écriture ultérieure.
-    persistDisabled = true;
-    if(persistTimer){ clearTimeout(persistTimer); persistTimer = null; }
-    try{ window.localStorage.removeItem(STORAGE_KEY); }catch(e){}
-    const done = () => { try{ location.reload(); }catch(e){} };
-    if(typeof caches !== 'undefined' && caches.keys){
-      caches.keys()
-        .then(keys => Promise.all(keys.map(k => caches.delete(k))))
-        .then(done, done);
-    } else {
-      done();
-    }
-  }
+
 
   function confirmClearAppData(){
     const scopes = [...document.querySelectorAll('.data-scope:checked')].map(cb => cb.value);
@@ -3901,6 +3986,10 @@
           blockThemes: life.blockThemes,
           monarch: life.monarch,
           extraTurns: life.extraTurns,
+          turnsEnabled: life.turnsEnabled,
+          turns: life.turns,
+          activeTurn: life.activeTurn,
+          tossDone: life.tossDone,
           timerMode: life.timerMode,
           localTimer: life.localTimer,
           swapped: life.swapped,
@@ -3997,6 +4086,10 @@
       else if(typeof saved.life.resOpen === 'boolean') life.resOpen = [saved.life.resOpen, saved.life.resOpen];
       if(Number.isInteger(saved.life.monarch)) life.monarch = saved.life.monarch;
       if(Array.isArray(saved.life.extraTurns)) life.extraTurns = saved.life.extraTurns.map(v => !!v);
+      life.turnsEnabled = !!saved.life.turnsEnabled;
+      if(Array.isArray(saved.life.turns)) life.turns = saved.life.turns.map(v => parseInt(v, 10) || 1);
+      if(Number.isInteger(saved.life.activeTurn)) life.activeTurn = saved.life.activeTurn;
+      life.tossDone = !!saved.life.tossDone;
       if(saved.life.timerMode === 'tournament' || saved.life.timerMode === 'local') life.timerMode = saved.life.timerMode;
       if(saved.life.localTimer && typeof saved.life.localTimer.endTime === 'number') life.localTimer = saved.life.localTimer;
       life.swapped = !!saved.life.swapped;
@@ -4344,7 +4437,10 @@
     extraTurns: [false, false, false, false, false],   // 5 tours additionnels cochés
     timerMode: null,            // null (aucun), 'tournament' (suivi) ou 'local'
     localTimer: null,           // { endTime, minutes, soundPlayed } pour le chrono indépendant
-    swapped: false              // zones haute et basse interverties
+    swapped: false,             // zones haute et basse interverties
+    turnsEnabled: false,        // suivi des tours actif
+    turns: [1, 1, 1, 1],        // numéro de tour de chaque joueur
+    activeTurn: null            // slot dont c'est le tour, ou null
   };
   const MAX_PLAYERS = 4;
 
@@ -4486,6 +4582,16 @@
       block.appendChild(themeBtn);
       block.appendChild(menu);
     }
+
+    // Marqueur de tour, dans le coin supérieur du bloc. Le numéro indique le tour
+    // du joueur ; « + » le fait passer au tour suivant et lui donne la main.
+    const turnBox = document.createElement('div');
+    turnBox.className = 'turn-box';
+    turnBox.dataset.slot = slot;
+    turnBox.innerHTML =
+      '<button type="button" class="turn-num" data-slot="' + slot + '" aria-label="Donner la main au joueur ' + slot + '">1</button>' +
+      '<button type="button" class="turn-next" data-slot="' + slot + '" aria-label="Tour suivant du joueur ' + slot + '">+</button>';
+    block.appendChild(turnBox);
 
     const nameEl = document.createElement('div');
     nameEl.className = 'life-player-name';
@@ -4653,6 +4759,7 @@
     fsZoneBottom.dataset.cols = Math.min(2, Math.max(1, bottom.length));
     document.getElementById('life-fullscreen-overlay').dataset.count = n;
 
+    invalidateTimerNodes();   // des nœuds ont pu être recréés
     wireBlockThemeButtons();
     for(let s = 1; s <= n; s++) updateLifeBlockDom(s);
     applyAllBlockThemes();
@@ -4660,6 +4767,8 @@
     for(let s = 1; s <= n; s++) syncResourcesDrawer(s);
     applyMonarch();
     applyDayNight();
+    applyTurnTracking();
+    applyTossVisibility();
   }
 
   // Un sélecteur par joueur, régénéré selon le nombre de joueurs choisi.
@@ -4837,6 +4946,16 @@
       el.textContent = poison;
       el.classList.toggle('lethal', poison >= POISON_LETHAL);
     });
+    // Un joueur est éliminé s'il tombe à 0 point de vie, atteint 10 compteurs
+    // poison, ou encaisse 21 dégâts d'un même commandant.
+    const dmgLethal = (life.resources[slot - 1] && life.resources[slot - 1].cmd)
+      ? Object.values(life.resources[slot - 1].cmd).some(v => (v || 0) >= CMD_LETHAL)
+      : false;
+    const defeated = life.started && (total <= 0 || poison >= POISON_LETHAL || dmgLethal);
+    eachInBlocks('.fs-block[data-slot="' + slot + '"], .life-block[data-slot="' + slot + '"]', el => {
+      el.classList.toggle('is-defeated', defeated);
+    });
+
     eachInBlocks('.res-val[data-slot="' + slot + '"]', el => {
       const v = getRes(slot, el.dataset.res);
       el.textContent = v;
@@ -4887,11 +5006,20 @@
 
   function historyEntryHtml(h){
     const who = life.names[h.slot - 1] || ('Joueur ' + h.slot);
+    // Le toss n'est pas une variation chiffrée : on le présente en clair.
+    if(h.kind === 'toss'){
+      return '<div class="life-history-entry">' +
+        '<span class="life-history-time">' + h.time + '</span>' +
+        '<span class="life-history-who">' + escapeHtml(life.names[h.slot - 1] || ('Joueur ' + h.slot)) + '</span>' +
+        '<span class="life-history-change up">a gagné le toss</span>' +
+        '</div>';
+    }
     const sign = h.delta > 0 ? '+' : '';
     const dirClass = h.delta > 0 ? 'up' : 'down';
     const label = h.kind === 'poison' ? 'poison'
                 : h.kind === 'tax' ? 'taxe'
                 : h.kind === 'fetch' ? 'PV — Fetch'
+                : h.kind === 'turn' ? 'tour'
                 : 'PV';
     return '<div class="life-history-entry">' +
       '<span class="life-history-time">' + h.time + '</span>' +
@@ -5379,8 +5507,12 @@
     life.resources = life.resources.map(() => emptyResources());
     life.monarch = null;
     life.dayNight = null;
+    life.turns = [1, 1, 1, 1];
+    life.activeTurn = null;
+    resetToss();
     applyMonarch();
     applyDayNight();
+    applyTurnTracking();
     life.history = [];
     syncLifeUiFromState();
     persistState();
@@ -5482,10 +5614,12 @@
   function applyDayNight(){
     const btn = document.getElementById('fs-daynight-btn');
     if(!btn) return;
-    const state = life.dayNight;
-    btn.innerHTML = (state === 'day') ? SUN_SVG : MOON_SVG;
-    btn.classList.toggle('is-day', state === 'day');
-    btn.classList.toggle('is-night', state === 'night');
+    // « phase » et non « state » : ce dernier nom masquerait l'état global de
+    // l'application, ce qui rendrait la lecture trompeuse.
+    const phase = life.dayNight;
+    btn.innerHTML = (phase === 'day') ? SUN_SVG : MOON_SVG;
+    btn.classList.toggle('is-day', phase === 'day');
+    btn.classList.toggle('is-night', phase === 'night');
     btn.setAttribute('aria-label',
       state === 'day' ? 'Il fait jour — appuyer pour passer à la nuit'
       : state === 'night' ? 'Il fait nuit — appuyer pour passer au jour'
@@ -5541,7 +5675,7 @@
 
   function updateFsTimerDisplays(){
     const remaining = fsTimerRemaining();
-    document.querySelectorAll('.fs-timer-display').forEach(el => {
+    fsDisplayNodes().forEach(el => {
       if(remaining == null){ el.hidden = true; return; }
       el.hidden = false;
       if(remaining <= 0){
@@ -5552,12 +5686,7 @@
         el.classList.remove('expired');
       }
     });
-    const btn = document.getElementById('fs-timer-btn');
-    if(btn){
-      btn.classList.toggle('is-active', remaining != null);
-      btn.textContent = (remaining == null) ? '⏱ Chrono'
-        : (remaining <= 0 ? '⏱ Terminé' : '⏱ ' + formatTime(remaining));
-    }
+
     if(typeof applyExtraTurns === 'function') applyExtraTurns();
   }
 
@@ -5566,6 +5695,9 @@
   }
   function startFsTimerLoop(){
     stopFsTimerLoop();
+    // En mode « suivi du tournoi », le chrono de ronde rafraîchit déjà l'affichage
+    // à chaque battement : une seconde boucle ferait le même travail en double.
+    if(life.timerMode !== 'local'){ updateFsTimerDisplays(); return; }
     fsTimerInterval = setInterval(() => {
       const remaining = fsTimerRemaining();
       if(remaining === 0){
@@ -5730,7 +5862,88 @@
     modalOverlay.hidden = false;
   }
 
-  document.getElementById('fs-timer-btn').addEventListener('click', openFsTimerPicker);
+
+
+  /* ---------- Suivi des tours ----------
+     Chaque joueur porte son numéro de tour. Toucher le numéro lui donne la main ;
+     « + » le fait avancer d'un tour et lui donne la main au passage. */
+  function applyTurnTracking(){
+    lifeFullscreenOverlay.dataset.turns = life.turnsEnabled ? 'on' : 'off';
+    eachInBlocks('.turn-box', box => {
+      const slot = parseInt(box.dataset.slot, 10);
+      box.classList.toggle('is-active', life.activeTurn === slot);
+      const bloc = box.closest('.fs-block, .life-block');
+      // Les joueurs dont ce n'est pas le tour seront très légèrement estompés.
+      if(bloc) bloc.classList.toggle('is-turn', life.activeTurn === slot);
+      const num = box.querySelector('.turn-num');
+      if(num) num.textContent = life.turns[slot - 1] || 1;
+    });
+  }
+
+  function setActiveTurn(slot){
+    life.activeTurn = slot;
+    applyTurnTracking();
+    persistState();
+  }
+
+  function nextTurn(slot){
+    life.turns[slot - 1] = (life.turns[slot - 1] || 1) + 1;
+    life.activeTurn = slot;
+    applyTurnTracking();
+    logHistory(slot, 'turn', 1, life.turns[slot - 1]);
+    persistState();
+  }
+
+  function toggleTurnTracking(){
+    life.turnsEnabled = !life.turnsEnabled;
+    if(life.turnsEnabled && life.activeTurn == null) life.activeTurn = 1;
+    applyTurnTracking();
+    persistState();
+  }
+
+  // Délégation : les marqueurs sont recréés à chaque rendu des blocs.
+  lifeFullscreenOverlay.addEventListener('click', e => {
+    const num = e.target.closest('.turn-num');
+    if(num){ setActiveTurn(parseInt(num.dataset.slot, 10)); return; }
+    const nxt = e.target.closest('.turn-next');
+    if(nxt){ nextTurn(parseInt(nxt.dataset.slot, 10)); }
+  });
+
+  /* ---------- Toss : désignation du premier joueur ----------
+     Même mise en scène que les dés : trois points d'attente, puis le nom. */
+  // Le bouton disparaît une fois le tirage fait : il ne revient qu'au match suivant.
+  function applyTossVisibility(){
+    document.querySelectorAll('.toss-btn').forEach(b => { b.hidden = !!life.tossDone; });
+  }
+
+  // Remise à zéro entre deux matchs : le bouton revient et le résultat s'efface,
+  // sans quoi « X commence » resterait affiché sur la nouvelle partie.
+  function resetToss(){
+    life.tossDone = false;
+    applyTossVisibility();
+    setDiceResult('', false);
+  }
+
+  function runToss(){
+    const n = life.playerCount;
+    if(!life.started || n < 2){
+      setDiceResult('Lancez une partie à 2 joueurs minimum', false);
+      return;
+    }
+    rollWithSuspense(() => {
+      const slot = Math.floor(Math.random() * n) + 1;
+      const nom = life.names[slot - 1] || ('Joueur ' + slot);
+      // Le gagnant prend la main : son marqueur de tour passe en surbrillance.
+      life.activeTurn = slot;
+      life.tossDone = true;
+      applyTurnTracking();
+      applyTossVisibility();
+      logHistory(slot, 'toss', 0, life.turns[slot - 1] || 1);
+      persistState();
+      return '🎯 ' + nom + ' commence';
+    });
+  }
+  document.querySelectorAll('.toss-btn').forEach(b => b.addEventListener('click', runToss));
 
   // ---------- Tours additionnels ----------
   // À la fin du temps de ronde, les joueurs disposent de 5 tours supplémentaires :
@@ -5776,7 +5989,7 @@
     renderLifeBlocks();
     persistState();
   }
-  document.getElementById('fs-swap-btn').addEventListener('click', swapPlayers);
+
 
   function enterLifeFullscreen(){
     lifeFullscreenOverlay.hidden = false;
@@ -5787,7 +6000,12 @@
     applyAllBlockThemes();
     applyMonarch();
     applyDayNight();
+    applyTurnTracking();
     applyExtraTurns();
+    // Si aucun chrono n'a été choisi pour la table et qu'une ronde de tournoi est
+    // en cours, on la suit d'emblée : c'est le cas le plus courant, et cela évite
+    // que le plein écran n'affiche aucun temps alors qu'une ronde tourne.
+    if(!life.timerMode && roundTimer.endTime != null) life.timerMode = 'tournament';
     updateFsTimerDisplays();
     if(fsTimerRemaining() > 0) startFsTimerLoop();   // reprise après un aller-retour
     requestScreenLock();
@@ -5823,8 +6041,12 @@
     // Une nouvelle partie repart sans monarque ni cycle jour/nuit.
     life.monarch = null;
     life.dayNight = null;
+    life.turns = [1, 1, 1, 1];
+    life.activeTurn = null;
+    resetToss();
     applyMonarch();
     applyDayNight();
+    applyTurnTracking();
     for(let s = 1; s <= life.playerCount; s++) updateLifeBlockDom(s);
     renderLifeHistory();
     persistState();
@@ -5913,7 +6135,41 @@
     modalOverlay.hidden = false;
   }
 
-  document.getElementById('fs-settings-btn').addEventListener('click', openLifeSettings);
+  // Menu unique du plein écran : rassemble les actions devenues nombreuses.
+  function openFsMenu(){
+    const r = fsTimerRemaining();
+    const chronoLabel = (r == null) ? '⏱ Chrono'
+      : (r <= 0 ? '⏱ Chrono — terminé' : '⏱ Chrono — ' + formatTime(r));
+
+    openModal('Réglages de la partie',
+      'Toutes les actions de la table, sans quitter le plein écran.',
+      [
+        { label: chronoLabel, style: 'secondary', onClick: openFsTimerPicker },
+        { label: life.turnsEnabled ? '↻ Suivi des tours : activé' : '↻ Activer le suivi des tours',
+          style: 'secondary', onClick: toggleTurnTracking },
+        { label: '⇅ Inverser la position des joueurs', style: 'secondary', onClick: swapPlayers },
+        { label: '🎨 Couleurs des joueurs', style: 'secondary', onClick: openLifeSettings },
+        { label: '🌗 Thème de l\'application', style: 'secondary', onClick: openAppThemePicker },
+        { label: '⟲ Relancer le match', style: 'secondary', onClick: openRestartPicker },
+        { label: 'Fermer', style: 'secondary' }
+      ]);
+  }
+
+  // Choix clair / sombre / auto sans quitter le plein écran.
+  function openAppThemePicker(){
+    const labels = { auto: 'Automatique', light: 'Clair', dark: 'Sombre' };
+    const buttons = ['auto', 'light', 'dark'].map(mode => ({
+      label: (themeMode === mode ? '✓ ' : '') + labels[mode],
+      style: themeMode === mode ? 'primary' : 'secondary',
+      onClick: () => { themeMode = mode; applyTheme(); persistState(); }
+    }));
+    buttons.push({ label: 'Retour', style: 'secondary', onClick: openFsMenu });
+    openModal('Thème de l\'application',
+      'En mode automatique, l\'application suit le réglage de votre appareil, ou l\'heure locale s\'il n\'en exprime aucun.',
+      buttons);
+  }
+
+  document.getElementById('fs-settings-btn').addEventListener('click', openFsMenu);
 
   // Nouveau match depuis le plein écran : on peut repartir avec les mêmes joueurs
   // ou en changer, sans avoir à quitter l'affichage de table.
@@ -5964,7 +6220,15 @@
       const pool = shuffle([...RANDOM_NAMES]).filter(x => !picked.includes(x));
       const finalNames = chosen.map((n, i) => n || pool.pop() || ('Joueur ' + (i + 1)));
 
-      const joueursChanges = finalNames.some((n, i) => n !== life.names[i]);
+      // On compare les ensembles de noms, sans tenir compte de l'ordre ni de la
+      // casse : réordonner les mêmes joueurs ne doit PAS remettre le chrono à
+      // zéro. Seule une composition réellement différente le justifie.
+      const memeEquipe = (a, b) => {
+        const norm = l => (l || []).filter(Boolean).map(x => String(x).trim().toLowerCase()).sort();
+        const x = norm(a), y = norm(b);
+        return x.length === y.length && x.every((v, i) => v === y[i]);
+      };
+      const joueursChanges = !memeEquipe(finalNames, life.names);
       life.names = finalNames;
       finalNames.forEach((n, i) => {
         const theme = themeForPlayerName(n);
@@ -5988,17 +6252,17 @@
     modalOverlay.hidden = false;
   }
 
-  document.getElementById('fs-restart-btn').addEventListener('click', () => {
+  function openRestartPicker(){
     openModal(
       'Relancer la partie',
       'Relancer remet les compteurs à ' + life.startTotal + ' avec les mêmes joueurs. Un nouveau match permet aussi d\'en changer.',
       [
         { label: 'Relancer avec les mêmes joueurs', style: 'primary', onClick: restartLifeMatch },
         { label: 'Nouveau match (changer les joueurs)', style: 'secondary', onClick: openNewMatchPicker },
-        { label: 'Annuler', style: 'secondary' }
+        { label: 'Retour', style: 'secondary', onClick: openFsMenu }
       ]
     );
-  });
+  }
 
   lifeFullscreenBtn.addEventListener('click', enterLifeFullscreen);
   fsExitBtn.addEventListener('click', exitLifeFullscreen);
@@ -6366,11 +6630,29 @@
     return Math.max(0, Math.round((roundTimer.endTime - Date.now()) / 1000));
   }
 
+  /* Les afficheurs de chrono sont interrogés quatre fois par seconde : on
+     mémorise les nœuds au lieu de reparcourir le document à chaque battement.
+     Le cache est invalidé quand des blocs joueur sont recréés. */
+  const timerNodes = { round: null, roundLabels: null, fs: null };
+  function invalidateTimerNodes(){ timerNodes.round = timerNodes.roundLabels = timerNodes.fs = null; }
+  function roundDisplayNodes(){
+    if(!timerNodes.round) timerNodes.round = [...document.querySelectorAll('.round-timer-display')];
+    return timerNodes.round;
+  }
+  function roundLabelNodes(){
+    if(!timerNodes.roundLabels) timerNodes.roundLabels = [...document.querySelectorAll('.round-timer-label')];
+    return timerNodes.roundLabels;
+  }
+  function fsDisplayNodes(){
+    if(!timerNodes.fs) timerNodes.fs = [...document.querySelectorAll('.fs-timer-display')];
+    return timerNodes.fs;
+  }
+
   function updateRoundTimerDisplays(){
     const remaining = roundTimerRemaining();
     const running = !!roundTimer.intervalId;
 
-    document.querySelectorAll('.round-timer-display').forEach(el => {
+    roundDisplayNodes().forEach(el => {
       if(remaining == null){ el.hidden = true; return; }
       el.hidden = false;
       if(remaining <= 0){
@@ -6381,7 +6663,7 @@
         el.classList.remove('expired');
       }
     });
-    document.querySelectorAll('.round-timer-label').forEach(el => {
+    roundLabelNodes().forEach(el => {
       el.hidden = (remaining == null);
     });
 
