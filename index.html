@@ -3097,6 +3097,7 @@
       changes: [
         "Nouvel onglet Initiative : suivi du donjon Undercity, avec les neuf salles de la carte, les passages autorises, plusieurs joueurs par salle et retour en arriere possible.",
         "Donjon : la salle Trap propose d'appliquer les 5 points de degats au suivi de points de vie, et chaque deplacement entre dans l'historique.",
+        "Donjon : la progression repart de zero a chaque nouveau match, relance ou nouvelle partie.",
         "Donjon accessible en fenetre depuis le plein ecran : un raccourci apparait a cote du cycle jour/nuit des qu un joueur y progresse, et la fenetre reste ouverte entre les actions.",
         "Points de vie : chaque format propose son nombre de joueurs habituel, et 60 points de vie rejoint les prereglages.",
         "Points de vie : le format de jeu se choisit dans une liste (Classique, Commander, Duel Commander, Brawl, Troll a deux tetes, Troll a deux tetes Commander) qui applique ses valeurs par defaut.",
@@ -5605,6 +5606,7 @@
     life.resources = names.map(() => emptyResources());
     life.history = [];
     life.started = true;
+    resetMatchExtras();
     renderLifeBlocks();
     syncLifeUiFromState();
     persistState();
@@ -5618,9 +5620,7 @@
     life.resources = life.resources.map(() => emptyResources());
     life.monarch = null;
     life.dayNight = null;
-    life.turns = [1, 1, 1, 1];
-    life.activeTurn = null;
-    resetToss();
+    resetMatchExtras();
     applyMonarch();
     applyDayNight();
     applyTurnTracking();
@@ -6037,6 +6037,19 @@
     setDiceResult('', false);
   }
 
+  /* Tout ce qui accompagne un match et doit repartir de zéro : tirage du premier
+     joueur, compteurs de tours et progression dans le donjon. Regroupé ici pour
+     qu'aucun point d'entrée (démarrage, relance, nouvelle partie) ne l'oublie. */
+  function resetMatchExtras(){
+    life.turns = [1, 1, 1, 1];
+    life.activeTurn = null;
+    resetToss();
+    dungeon.pos = {};
+    dungeon.path = {};
+    renderAllDungeons();
+    applyTurnTracking();
+  }
+
   function runToss(){
     const n = life.playerCount;
     if(!life.started || n < 2){
@@ -6375,9 +6388,7 @@
     // Une nouvelle partie repart sans monarque ni cycle jour/nuit.
     life.monarch = null;
     life.dayNight = null;
-    life.turns = [1, 1, 1, 1];
-    life.activeTurn = null;
-    resetToss();
+    resetMatchExtras();
     applyMonarch();
     applyDayNight();
     applyTurnTracking();
